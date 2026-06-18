@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "free-cli"
+version = "0.1.0"
+description = "Yerel multi-agent CLI (Ollama-backed)"
+dependencies = [
+    "click>=8.1",
+    "requests>=2.31",
+    "rich>=13.0",
+    "prompt_toolkit>=3.0.0"
+]
+
+[project.scripts]
+free = "main:cli_main"
+
+[tool.setuptools]
+py-modules = ["main"]
+
+[tool.setuptools.packages.find]
+include = ["agents", "tools"]

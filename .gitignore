@@ -1,0 +1,12 @@
+workspace/*
+!workspace/.gitkeep
+__pycache__/
+*.pyc
+venv/
+.venv/
+free.log
+private/
+workspace/
+*.log    
+CLAUDE.md
+*.egg-info/

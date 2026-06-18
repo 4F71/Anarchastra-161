@@ -1,0 +1,7 @@
+click>=8.1
+requests>=2.31
+pytest>=8.0
+ruff>=0.6
+mypy>=1.11
+rich>=13.0
+prompt_toolkit>=3.0.0
