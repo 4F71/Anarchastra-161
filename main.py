@@ -10,19 +10,28 @@ from agents.core import (
     DEFAULT_RESEARCH_MODEL,
     DEFAULT_VISION_MODEL,
     MODEL_REGISTRY,
+    MODEL_VRAM_ESTIMATES_GB,
     OllamaClient,
 )
 from agents.research import ResearchAgent
 from agents.reviewer import ReviewerAgent
+from agents.vision import VisionAgent
 import os
+import agents.config as agent_config
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.table import Table
 from rich.text import Text
 from prompt_toolkit import PromptSession
 from prompt_toolkit.formatted_text import HTML
+from prompt_toolkit.history import FileHistory
 
 console = Console()
+
+HISTORY_DIR = os.path.join(os.path.dirname(__file__), "logs")
+os.makedirs(HISTORY_DIR, exist_ok=True)
+HISTORY_PATH = os.path.join(HISTORY_DIR, ".free_history")
+MAX_HISTORY_MESSAGES = 20  # sistem promptu disinda tutulacak son mesaj sayisi
 
 LOGO = """[bold red]
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
@@ -78,7 +87,9 @@ def free(ctx):
 @free.command()
 @click.argument("prompt")
 @click.option("--model", default=DEFAULT_CODER_MODEL, show_default=True)
-def code(prompt: str, model: str):
+@click.option("--confirm-writes", is_flag=True, help="write_file/edit_file calistirilmadan once onay sor.")
+def code(prompt: str, model: str, confirm_writes: bool):
+    agent_config.confirm_writes = confirm_writes
     agent = CoderAgent(model=model)
     try:
         print_result(agent.run(prompt, mode="code"))
@@ -89,7 +100,9 @@ def code(prompt: str, model: str):
 @free.command()
 @click.argument("prompt")
 @click.option("--model", default=DEFAULT_CODER_MODEL, show_default=True)
-def debug(prompt: str, model: str):
+@click.option("--confirm-writes", is_flag=True, help="write_file/edit_file calistirilmadan once onay sor.")
+def debug(prompt: str, model: str, confirm_writes: bool):
+    agent_config.confirm_writes = confirm_writes
     agent = CoderAgent(model=model)
     try:
         print_result(agent.run(prompt, mode="debug"))
@@ -100,7 +113,9 @@ def debug(prompt: str, model: str):
 @free.command()
 @click.argument("prompt")
 @click.option("--model", default=DEFAULT_RESEARCH_MODEL, show_default=True)
-def research(prompt: str, model: str):
+@click.option("--confirm-writes", is_flag=True, help="write_file/edit_file calistirilmadan once onay sor.")
+def research(prompt: str, model: str, confirm_writes: bool):
+    agent_config.confirm_writes = confirm_writes
     agent = ResearchAgent(model=model)
     try:
         print_result(agent.run(prompt))
@@ -111,7 +126,9 @@ def research(prompt: str, model: str):
 @free.command()
 @click.argument("prompt")
 @click.option("--model", default=DEFAULT_CODER_MODEL, show_default=True)
-def review(prompt: str, model: str):
+@click.option("--confirm-writes", is_flag=True, help="write_file/edit_file calistirilmadan once onay sor.")
+def review(prompt: str, model: str, confirm_writes: bool):
+    agent_config.confirm_writes = confirm_writes
     agent = ReviewerAgent(model=model)
     try:
         print_result(agent.run(prompt))
@@ -132,14 +149,85 @@ def vision(image_path: str, prompt: str, model: str):
 
 
 from agents.core import ModelManager
-from tools.file_ops import FILE_TOOLS_SCHEMA, TOOL_EXECUTOR
-from agents.coder import CODE_SYSTEM_PROMPT
+from tools.file_ops import FILE_TOOLS_SCHEMA, TOOL_EXECUTOR, WORKSPACE_ROOT, read_image_b64
+from agents.coder import CODE_SYSTEM_PROMPT, CODER_TOOLS_SCHEMA, CODER_TOOL_EXECUTOR
+from agents.research import RESEARCH_SYSTEM_PROMPT
+from agents.vision import VISION_SYSTEM_PROMPT
 from agents.core import run_agent_loop
+import json
+import time
+from PIL import ImageGrab
+from prompt_toolkit.key_binding import KeyBindings
+
+def route_prompt(client: OllamaClient, current_model: str, user_prompt: str) -> str:
+    sys_msg = (
+        "You are a strict intent classifier. Return ONLY a valid JSON object with a single key 'intent'. "
+        "If the user asks to write code, debug code, build software, or run tools, intent is 'code'. "
+        "If the user asks for general information, research, abstract explanations (like physics, history), intent is 'research'. "
+        "Example output: {\"intent\": \"code\"} or {\"intent\": \"research\"}"
+    )
+    messages = [
+        {"role": "system", "content": sys_msg},
+        {"role": "user", "content": user_prompt}
+    ]
+    try:
+        options = {"temperature": 0.0}
+        with console.status("[dim]Yönlendiriliyor (Router)...[/]"):
+            response = client.chat(current_model, messages, format="json", options=options)
+            content = response.get("message", {}).get("content", "{}")
+            parsed = json.loads(content)
+            return parsed.get("intent", "code").lower()
+    except Exception as exc:
+        # Fallback to code
+        return "code"
+
+def capture_snipping_tool(save_path: str) -> bool:
+    """Terminali minimize edip ms-screenclip başlatır, seçim sonrası geri döner."""
+    import ctypes
+    SW_MINIMIZE = 6
+    SW_RESTORE  = 9
+
+    # Terminali minimize et (başka ekranlar görünsün)
+    hwnd = ctypes.windll.kernel32.GetConsoleWindow()
+    ctypes.windll.user32.ShowWindow(hwnd, SW_MINIMIZE)
+    time.sleep(0.3)
+
+    # Panoyu temizle (eski resim kalmasın)
+    try:
+        ctypes.windll.user32.OpenClipboard(None)
+        ctypes.windll.user32.EmptyClipboard()
+        ctypes.windll.user32.CloseClipboard()
+    except Exception:
+        pass
+
+    # Ekran Alıntısı Aracı'nı başlat
+    os.system("start ms-screenclip:")
+
+    console.print("\n[bold cyan]📸 Ekran Alıntısı Aracı başlatıldı.[/] [dim]Analiz edilecek alanı seçin. İptal için Ctrl+C.[/]")
+
+    try:
+        for _ in range(60):  # 30 saniye bekleme
+            time.sleep(0.5)
+            img = ImageGrab.grabclipboard()
+            if img is not None and hasattr(img, "save"):
+                os.makedirs(os.path.dirname(save_path), exist_ok=True)
+                img.save(save_path)
+                ctypes.windll.user32.ShowWindow(hwnd, SW_RESTORE)
+                return True
+    except KeyboardInterrupt:
+        console.print("\n[dim]İptal edildi.[/]")
+
+    # Süre doldu veya iptal edildi — terminali geri getir
+    ctypes.windll.user32.ShowWindow(hwnd, SW_RESTORE)
+    return False
+
 
 @free.command()
 @click.option("--model", default=DEFAULT_CODER_MODEL, show_default=True)
-def shell(model: str):
+@click.option("--confirm-writes", is_flag=True, help="write_file/edit_file calistirilmadan once onay sor.")
+def shell(model: str, confirm_writes: bool):
     """Sürekli calisan, etkilesimli REPL modunu baslatir."""
+    agent_config.confirm_writes = confirm_writes
     client = OllamaClient()
     manager = ModelManager(client)
     
@@ -150,12 +238,26 @@ def shell(model: str):
         return
 
     messages = [{"role": "system", "content": CODE_SYSTEM_PROMPT}]
-    
-    def bottom_toolbar():
-        return HTML(' <b>?</b> for help  <b>/exit</b> to quit  <b>/clear</b> to clear screen ')
 
-    session = PromptSession()
+    # Key bindings
+    kb = KeyBindings()
+
+    @kb.add('f2')
+    def toggle_verbose(event):
+        agent_config.toggle_verbose()
+        event.app.invalidate()  # toolbar'u yenile
+
+    def bottom_toolbar():
+        mode = " 🔍 ON" if agent_config.verbose else ""
+        confirm_mode = " ⚠️ ON" if agent_config.confirm_writes else ""
+        return HTML(
+            f' <b>?</b> help  <b>/exit</b> quit  <b>/clear</b> clear  '
+            f'<b>F2</b> thinking{mode}  <b>/confirm</b> writes{confirm_mode} '
+        )
+
+    session = PromptSession(key_bindings=kb, history=FileHistory(HISTORY_PATH))
     print_banner()
+    pinned_model = None
 
     while True:
         try:
@@ -173,20 +275,139 @@ def shell(model: str):
             click.clear()
             print_banner()
             continue
+        elif prompt == "/verbose":
+            state = agent_config.toggle_verbose()
+            label = "AÇIK ✅" if state else "KAPALI ❌"
+            console.print(f"[dim]🔍 Thinking log: {label}[/]")
+            continue
+        elif prompt == "/confirm":
+            state = agent_config.toggle_confirm_writes()
+            label = "AÇIK ✅" if state else "KAPALI ❌"
+            console.print(f"[dim]⚠️  write_file/edit_file onayi: {label}[/]")
+            continue
+        elif prompt == "/save":
+            import datetime
+            ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            save_name = f"session_{ts}.md"
+            save_path = os.path.join(WORKSPACE_ROOT, save_name)
+            os.makedirs(WORKSPACE_ROOT, exist_ok=True)
+            lines = []
+            for m in messages:
+                if m["role"] == "system" or not m.get("content"):
+                    continue
+                lines.append(f"### {m['role']}\n\n{m['content']}\n")
+            with open(save_path, "w", encoding="utf-8") as f:
+                f.write("\n".join(lines))
+            console.print(f"[dim]💾 Kaydedildi: workspace/{save_name}[/]")
+            continue
+        elif prompt.startswith("/model"):
+            target = prompt[len("/model"):].strip()
+            if not target:
+                pin_status = f" (SABITLENMIS)" if pinned_model else ""
+                console.print(f"[bold cyan]Aktif Model:[/] {model}{pin_status}")
+                try:
+                    models = client.list_models()
+                    if models:
+                        console.print("\n[dim]Kullanılabilir Modeller:[/]")
+                        for m in models:
+                            m_name = m.get("name", "Bilinmeyen")
+                            marker = "[bold green]👉[/]" if m_name == model else "  "
+                            console.print(f"{marker} {m_name}")
+                except Exception as e:
+                    console.print(f"[dim]Modeller listelenemedi: {e}[/]")
+                continue
+            try:
+                if target == "clear":
+                    pinned_model = None
+                    console.print("[dim]🔄 Model sabitlemesi kaldirildi, otomatik secim (router) devrede.[/]")
+                    continue
+                manager.ensure_loaded(target)
+                model = target
+                pinned_model = target
+                console.print(f"[dim]🔄 Model manuel olarak sabitlendi: {model} (kaldırmak için: /model clear)[/]")
+            except Exception as e:
+                console.print(f"[bold red]Model yuklenemedi:[/] {e}")
+            continue
         elif prompt == "?":
-            console.print("[dim]Commands: /exit, /clear, or just type a prompt to chat with the agent.[/]")
+            console.print(
+                "[dim]Komutlar: /exit, /clear, /verbose (thinking log), /confirm (yazma onayi), "
+                "/save (oturumu kaydet), /model <isim> (manuel model degisimi), /look <soru>, "
+                "veya direkt yaz.[/]"
+            )
             continue
             
-        messages.append({"role": "user", "content": prompt})
+        is_vision = False
+        image_b64 = None
+        if prompt.startswith("/look"):
+            import tempfile
+            prompt_text = prompt[5:].strip() or "Bu görüntüde ne görüyorsun? Hataları veya ilginç noktaları Türkçe açıkla."
+            temp_path = tempfile.mktemp(suffix=".png", prefix="free_look_")
+            if capture_snipping_tool(temp_path):
+                try:
+                    image_b64 = read_image_b64(temp_path)
+                finally:
+                    if os.path.exists(temp_path):
+                        os.remove(temp_path)
+                prompt = prompt_text
+                is_vision = True
+            else:
+                console.print("[bold red]Ekran alıntısı alınamadı veya iptal edildi.[/]")
+                continue
+
+        image_message = None
+        if is_vision:
+            image_message = {"role": "user", "content": prompt, "images": [image_b64]}
+            messages.append(image_message)
+            target_model = DEFAULT_VISION_MODEL
+            intent = "vision"
+        else:
+            messages.append({"role": "user", "content": prompt})
+            if pinned_model:
+                intent = "pinned"
+                target_model = pinned_model
+            else:
+                intent = route_prompt(client, model, prompt)
+                target_model = DEFAULT_RESEARCH_MODEL if intent == "research" else DEFAULT_CODER_MODEL
         
-        result = run_agent_loop(
-            client,
-            model,
-            messages,
-            tools_schema=FILE_TOOLS_SCHEMA,
-            tool_executor=TOOL_EXECUTOR
-        )
+        if target_model != model:
+            console.print(f"[dim]🔄 Ajan değiştiriliyor: {intent.upper()} ({target_model})[/]")
+            try:
+                manager.ensure_loaded(target_model)
+                model = target_model
+            except Exception as e:
+                console.print(f"[bold red]Model yüklenemedi:[/] {e}")
+                
+        # Swap system prompt + tool set based on current model
+        if model == DEFAULT_RESEARCH_MODEL and not pinned_model:
+            messages[0] = {"role": "system", "content": RESEARCH_SYSTEM_PROMPT}
+            tools_schema, tool_executor = FILE_TOOLS_SCHEMA, TOOL_EXECUTOR
+        elif model == DEFAULT_VISION_MODEL and not pinned_model:
+            messages[0] = {"role": "system", "content": VISION_SYSTEM_PROMPT}
+            tools_schema, tool_executor = FILE_TOOLS_SCHEMA, TOOL_EXECUTOR
+        else:
+            messages[0] = {"role": "system", "content": CODE_SYSTEM_PROMPT}
+            tools_schema, tool_executor = CODER_TOOLS_SCHEMA, CODER_TOOL_EXECUTOR
+
+        try:
+            result = run_agent_loop(
+                client,
+                model,
+                messages,
+                tools_schema=tools_schema,
+                tool_executor=tool_executor
+            )
+        except KeyboardInterrupt:
+            console.print("\n[dim]İptal edildi.[/]")
+            continue
         print_result(result)
+
+        # Goruntu base64'unu history'den cikar — yoksa her turn'da tekrar gonderilir
+        if image_message is not None:
+            image_message.pop("images", None)
+
+        # Mesaj gecmisini sinirla (sistem promptu + son MAX_HISTORY_MESSAGES mesaj)
+        if len(messages) > MAX_HISTORY_MESSAGES + 1:
+            messages[:] = [messages[0]] + messages[-MAX_HISTORY_MESSAGES:]
 
 
 @free.command()
@@ -206,7 +427,51 @@ def status():
         name = entry.get("name") or entry.get("model") or "?"
         base = name.split(":")[0]
         pool = MODEL_REGISTRY.get(base, {}).get("pool", "bilinmiyor")
-        click.echo(f"{name}  [{pool}]")
+        vram = MODEL_VRAM_ESTIMATES_GB.get(base)
+        vram_str = f"~{vram}GB VRAM" if vram else "VRAM tahmini yok"
+        click.echo(f"{name}  [{pool}]  {vram_str}")
+
+
+@free.command()
+@click.option("--lines", default=30, show_default=True, help="Gosterilecek son satir sayisi.")
+@click.option("--tool-calls-only", is_flag=True, help="Sadece tool_call satirlarini goster.")
+def log(lines: int, tool_calls_only: bool):
+    """free.log dosyasini bicimli sekilde gosterir."""
+    from agents.core import LOG_PATH
+    if not os.path.exists(LOG_PATH):
+        click.echo("Henuz log yok.")
+        return
+    with open(LOG_PATH, "r", encoding="utf-8") as f:
+        all_lines = f.readlines()
+    if tool_calls_only:
+        all_lines = [l for l in all_lines if "tool_call" in l]
+    for line in all_lines[-lines:]:
+        console.print(line.rstrip())
+
+
+@free.command()
+def models():
+    """Registry'deki modelleri ve Ollama'da cekilip cekilmedigini gosterir."""
+    client = OllamaClient()
+    try:
+        pulled = {m.get("name") for m in client.list_models()}
+    except Exception as exc:
+        click.echo(f"[free] Ollama'ya ulasilamadi: {exc}")
+        return
+
+    targets = [
+        (DEFAULT_CODER_MODEL, "coder"),
+        (DEFAULT_RESEARCH_MODEL, "research"),
+        (DEFAULT_VISION_MODEL, "vision"),
+    ]
+    for full_name, role in targets:
+        info = MODEL_REGISTRY.get(full_name.split(":")[0], {})
+        pool = info.get("pool", "bilinmiyor")
+        if full_name in pulled:
+            status_str = "[green]cekilmis[/]"
+        else:
+            status_str = f"[red]cekilmemis -> ollama pull {full_name}[/]"
+        console.print(f"{full_name}  [{role}/{pool}]  {status_str}")
 
 
 def cli_main():
