@@ -25,12 +25,12 @@ def _run(cmd: list[str], target: str) -> str:
     return output or f"{cmd[0]}: no issues found"
 
 
-def run_ruff(path: str = ".") -> str:
+def run_ruff(path: str = "workspace") -> str:
     target = resolve_read_path(path)
     return _run(["ruff", "check", target], path)
 
 
-def run_mypy(path: str = ".") -> str:
+def run_mypy(path: str = "workspace") -> str:
     target = resolve_read_path(path)
     return _run(["mypy", "--ignore-missing-imports", target], path)
 
@@ -46,7 +46,7 @@ STATIC_ANALYSIS_TOOLS_SCHEMA = [
                 "properties": {
                     "path": {
                         "type": "string",
-                        "description": "Path relative to the workspace root. Defaults to root.",
+                        "description": "Path relative to the project root. Defaults to workspace/.",
                     }
                 },
                 "required": [],
@@ -63,7 +63,7 @@ STATIC_ANALYSIS_TOOLS_SCHEMA = [
                 "properties": {
                     "path": {
                         "type": "string",
-                        "description": "Path relative to the workspace root. Defaults to root.",
+                        "description": "Path relative to the project root. Defaults to workspace/.",
                     }
                 },
                 "required": [],
