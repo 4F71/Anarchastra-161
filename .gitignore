@@ -1,12 +1,15 @@
-workspace/*
-!workspace/.gitkeep
+# Python ortamı
 __pycache__/
 *.pyc
 venv/
 .venv/
-free.log
-private/
-workspace/
-*.log    
-CLAUDE.md
 *.egg-info/
+
+# Çalışma zamanı / otomatik üretilen veriler
+workspace/
+logs/
+*.log
+
+# Gizli / kişisel dosyalar
+private/
+CLAUDE.md
