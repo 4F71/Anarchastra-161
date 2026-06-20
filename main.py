@@ -6,6 +6,7 @@ import click
 
 from agents.coder import CoderAgent
 from agents.core import (
+    DEFAULT_CODEBASE_MODEL,
     DEFAULT_CODER_MODEL,
     DEFAULT_RESEARCH_MODEL,
     DEFAULT_VISION_MODEL,
@@ -161,7 +162,7 @@ def vision(image_path: str, prompt: str, model: str):
 from agents.core import ModelManager
 from tools.file_ops import FILE_TOOLS_SCHEMA, TOOL_EXECUTOR, WORKSPACE_ROOT, read_image_b64
 from agents.coder import CODE_SYSTEM_PROMPT, CODER_TOOLS_SCHEMA, CODER_TOOL_EXECUTOR
-from agents.research import RESEARCH_SYSTEM_PROMPT
+from agents.research import RESEARCH_SYSTEM_PROMPT, RESEARCH_TOOLS_SCHEMA, RESEARCH_TOOL_EXECUTOR
 from agents.vision import VISION_SYSTEM_PROMPT
 from agents.core import run_agent_loop
 import json
@@ -169,12 +170,35 @@ import time
 from PIL import ImageGrab
 from prompt_toolkit.key_binding import KeyBindings
 
+CODEBASE_SYSTEM_PROMPT = (
+    "Sen bu projenin ('free' CLI, Stirner-73) KENDİ KOD TABANINI analiz eden OTONOM bir ajansın.\n\n"
+    "KURAL 1: Araç çağırmadan ÖNCE HİÇBİR ŞEY YAZMA. İlk çıktın mutlaka bir JSON araç çağrısı olmalı.\n"
+    "KURAL 2: Önce search_codebase(query='...') ile ilgili kod parçalarını bul. Bulduğun chunk yetersizse "
+    "ilgili dosyayı read_file(path='...') ile tam olarak oku.\n"
+    "KURAL 3: whois_lookup/web_search/fetch_url bu görev için KULLANILMAZ — soru bu projenin kendi "
+    "kaynak koduyla ilgili, dış dünyayla değil.\n"
+    "KURAL 4: Araç sonucunu aynen kullan, uydurma. Dosya yolunu ve fonksiyon/sınıf adlarını tam ver.\n"
+    "KURAL 5: YANIT YALNIZCA TÜRKÇE.\n\n"
+    "Araç çağırma formatı (SADECE BU JSON, başka hiçbir şey yazma):\n"
+    "{\n"
+    "  \"name\": \"search_codebase\",\n"
+    "  \"arguments\": {\"query\": \"...\"}\n"
+    "}\n"
+)
+
 def route_prompt(client: OllamaClient, current_model: str, user_prompt: str) -> str:
     sys_msg = (
-        "You are a strict intent classifier. Return ONLY a valid JSON object with a single key 'intent'. "
-        "If the user asks to write code, debug code, build software, or run tools, intent is 'code'. "
-        "If the user asks for general information, research, abstract explanations (like physics, history), intent is 'research'. "
-        "Example output: {\"intent\": \"code\"} or {\"intent\": \"research\"}"
+        "You are a strict intent classifier. Return ONLY a valid JSON object with a single key 'intent', "
+        "one of 'code', 'codebase', or 'research'. "
+        "All agents can call tools, so the mere mention of a tool name does NOT by itself determine intent — "
+        "focus on what the user ultimately wants. "
+        "If the user wants code WRITTEN, MODIFIED, or DEBUGGED (new files, edits, fixes, running scripts), intent is 'code'. "
+        "If the user wants something about THIS project's OWN codebase EXPLAINED, FOUND, or ANALYZED "
+        "(how an existing function/class/file in this repo works, where something is implemented, architecture "
+        "questions about this project), intent is 'codebase'. "
+        "If the user wants general information, web research, or abstract explanations unrelated to this "
+        "project's own source code (like physics, history, current events), intent is 'research'. "
+        "Example output: {\"intent\": \"code\"}, {\"intent\": \"codebase\"}, or {\"intent\": \"research\"}"
     )
     messages = [
         {"role": "system", "content": sys_msg},
@@ -385,7 +409,12 @@ def shell(model: str, confirm_writes: bool):
                 target_model = pinned_model
             else:
                 intent = route_prompt(client, model, prompt)
-                target_model = DEFAULT_RESEARCH_MODEL if intent == "research" else DEFAULT_CODER_MODEL
+                if intent == "codebase":
+                    target_model = DEFAULT_CODEBASE_MODEL
+                elif intent == "research":
+                    target_model = DEFAULT_RESEARCH_MODEL
+                else:
+                    target_model = DEFAULT_CODER_MODEL
         
         if target_model != model:
             console.print(f"[dim]🔄 Ajan değiştiriliyor: {intent.upper()} ({target_model})[/]")
@@ -396,7 +425,10 @@ def shell(model: str, confirm_writes: bool):
                 console.print(f"[bold red]Model yüklenemedi:[/] {e}")
                 
         # Swap system prompt + tool set based on current model
-        if model == DEFAULT_RESEARCH_MODEL and not pinned_model:
+        if model == DEFAULT_CODEBASE_MODEL and not pinned_model:
+            messages[0] = {"role": "system", "content": CODEBASE_SYSTEM_PROMPT}
+            tools_schema, tool_executor = RESEARCH_TOOLS_SCHEMA, RESEARCH_TOOL_EXECUTOR
+        elif model == DEFAULT_RESEARCH_MODEL and not pinned_model:
             messages[0] = {"role": "system", "content": RESEARCH_SYSTEM_PROMPT}
             tools_schema, tool_executor = FILE_TOOLS_SCHEMA, TOOL_EXECUTOR
         elif model == DEFAULT_VISION_MODEL and not pinned_model:

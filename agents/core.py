@@ -28,6 +28,7 @@ MODEL_REGISTRY = {
     "qwen2.5-coder": {"pool": "vram_native", "max_ctx": None, "role": "coder"},
     "hermes3": {"pool": "vram_heavy", "max_ctx": None, "role": "research"},
     "qwen3-vl": {"pool": "vram_native", "max_ctx": None, "role": "vision"},
+    "mistral-nemo": {"pool": "vram_heavy", "max_ctx": None, "role": "codebase"},
 }
 
 # Yaklasik VRAM kullanim tahmini (GB) — CLAUDE.md model_registry runtime_profile
@@ -36,11 +37,15 @@ MODEL_VRAM_ESTIMATES_GB = {
     "qwen2.5-coder": 5.9,
     "hermes3": 5.0,
     "qwen3-vl": 6.5,
+    "mistral-nemo": 7.1,
 }
 
 DEFAULT_CODER_MODEL = "hf.co/yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF:Q3_K_M"
 DEFAULT_RESEARCH_MODEL = "hermes3:8b"
 DEFAULT_VISION_MODEL = "qwen3-vl:8b"
+# search_codebase (RAG) sentezinde hermes3/qwen2.5-coder denemelerinden daha iyi sonuc verdi
+# (bkz. agents/research.py RESEARCH_SYSTEM_PROMPT) — bu yuzden codebase sorulari icin ayri rol.
+DEFAULT_CODEBASE_MODEL = "mistral-nemo:latest"
 
 MAX_TURNS_DEFAULT = 8
 
