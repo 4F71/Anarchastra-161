@@ -1,28 +1,33 @@
-# ANARCHASTRA-161
+# STIRNER-73
 
 **Yerel (Local-first) Multi-Ajan Çerçevesi**
 
 ![Status](https://img.shields.io/badge/Status-Active-success) ![Python](https://img.shields.io/badge/Python-3.10%2B-blue) ![Runtime](https://img.shields.io/badge/Runtime-Ollama-white) ![License](https://img.shields.io/badge/License-MIT-blue)
 
-Anarchastra-161, son kullanıcı donanımlarında yerel olarak çalışmak üzere inşa edilmiş otonom bir multi-ajan CLI (komut satırı) aracıdır. Donanımıma uygun olarak Ollama üzerinden açık kaynak modelleri kullanarak  API sınırlamalarını ve güvenlik filtrelerini atlayacak on-prem sistem hedeflenmektedir. 
+Stirner-73, son kullanıcı donanımlarında yerel olarak çalışmak üzere inşa edilmiş otonom bir multi-ajan CLI (komut satırı) aracıdır. Donanımıma uygun olarak Ollama üzerinden açık kaynak modelleri kullanarak  API sınırlamalarını ve güvenlik filtrelerini atlayacak on-prem sistem hedeflenmektedir. 
 
+
+İlk açılışta bir kerelik logo splash'i, logonun sağında kısa metin bilgisiyle birlikte gösterilir:
 
 ```text
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⣾⡄             free CLI v0.1.0
-⠀⠀⠀⠀⠀⠀⠀⠀⢀⣼⣿⣧⣶⣶⣶⣦⣤⣀⡀       Ollama tabanli yerel multi-agent arac · Offline
-⠀⠀⠀⠀⠀⠀⣠⣾⢿⣿⣿⣿⣏⠉⠉⠛⠛⠿⣷⣕     ~/Anarchastra-161
-⠀⠀⠀⠀⣠⣾⢝⠄⢀⣿⡿⠻⣿⣄⠀⠀⠀⠀⠈⢿⣧⡀⣀⣤⡾
-⠀⠀⠀⢰⣿⡡⠁⠀⠀⣿⡇⠀⠸⣿⣾⡆⠀⠀⣀⣤⣿⣿⠋⠁
-⠀⠀⢀⣷⣿⠃⠀⠀⢸⣿⡇⠀⠀⠹⣿⣷⣴⡾⠟⠉⠸⣿⡇
-⠀⠀⢸⣿⠗⡀⠀⠀⢸⣿⠃⣠⣶⣿⠿⢿⣿⡀⠀⠀⢀⣿⡇
-⠀⠀⠘⡿⡄⣇⠀⣀⣾⣿⡿⠟⠋⠁⠀⠈⢻⣷⣆⡄⢸⣿⡇
-⠀⠀⠀⢻⣷⣿⣿⠿⣿⣧⠀⠀⠀⠀⠀⠀⠀⠻⣿⣷⣿⡟
-⢀⣰⣾⣿⠿⣿⣿⣾⣿⠇⠀⠀⠀⠀⠀⠀⠀⢀⣼⣿⣿⣅
-⠀⠰⠊⠁⠀⠙⠪⣿⣿⣶⣤⣄⣀⣀⣀⣤⣶⣿⠟⠋⠙⢿⣷⡄
-⠀⠀⠀⠀⠀⠀⢀⣿⡟⠺⠭⠭⠿⠿⠿⠟⠋⠁⠀⠀⠀⠀⠙⠏⣦
-⠀⠀⠀⠀⠀⠀⢸⡟⠃
-⠀⠀⠀⠀⠀⠀⠀⠁
+              ████████████
+           █████     █   ████
+         ███████  █   ███  ██ █
+       ███████ ██████    ██ ██ ██
+      ███████ █████████  ██   ████
+     ██████  ██████████ ███   █████     free CLI v0.1.0
+    ████████            ██ █ ██████     Yerel Multi-Agent Cowork · Offline
+    ██████ ██  █████████████ ██████
+    ████  ████████   █ ███ █████████    Coder      VRAM (8GB)
+    ██████ ██████   █████  █████████    Research   RAM (32GB)
+    ██████ ███  ██     ████ ████████    Vision     VRAM (8GB)
+    ██████  █ █  ███████████ ███████
+     ████████ ██████████████  █████     ~\Desktop\yehu\Github Repo\Stirner-73
+      ███████ ███████████████ ████
+       ██████ ███████████████████
+        ███ ███████████████████
+           ██████████████████
+              ████████████
 ```
 
 ## Mimari
@@ -46,8 +51,8 @@ Sistem izole edilmiş (sandboxed) `workspace/` dizini içerisinde çalışır. G
 Depoyu klonlayın ve ilgili dizinde `free` komutunu sistem genelinde kaydetmek için düzenlenebilir (editable) modda derleyin.
 
 ```bash
-git clone https://github.com/4F71/Anarchastra-161.git
-cd Anarchastra-161
+git clone https://github.com/4F71/Stirner-73.git
+cd Stirner-73
 pip install -e .
 ```
 

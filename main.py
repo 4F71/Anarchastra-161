@@ -34,44 +34,73 @@ os.makedirs(HISTORY_DIR, exist_ok=True)
 HISTORY_PATH = os.path.join(HISTORY_DIR, ".free_history")
 MAX_HISTORY_MESSAGES = 20  # sistem promptu disinda tutulacak son mesaj sayisi
 
-LOGO = """[bold red]
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⣾⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⢀⣼⣿⣧⣶⣶⣶⣦⣤⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⣠⣾⢿⣿⣿⣿⣏⠉⠉⠛⠛⠿⣷⣕⠀⠀⠀⠀⠀⠀⢀⡀
-⠀⠀⠀⠀⣠⣾⢝⠄⢀⣿⡿⠻⣿⣄⠀⠀⠀⠀⠈⢿⣧⡀⣀⣤⡾⠀⠀⠀
-⠀⠀⠀⢰⣿⡡⠁⠀⠀⣿⡇⠀⠸⣿⣾⡆⠀⠀⣀⣤⣿⣿⠋⠁⠀⠀⠀⠀
-⠀⠀⢀⣷⣿⠃⠀⠀⢸⣿⡇⠀⠀⠹⣿⣷⣴⡾⠟⠉⠸⣿⡇⠀⠀⠀⠀⠀
-⠀⠀⢸⣿⠗⡀⠀⠀⢸⣿⠃⣠⣶⣿⠿⢿⣿⡀⠀⠀⢀⣿⡇⠀⠀⠀⠀⠀
-⠀⠀⠘⡿⡄⣇⠀⣀⣾⣿⡿⠟⠋⠁⠀⠈⢻⣷⣆⡄⢸⣿⡇⠀⠀⠀⠀⠀
-⠀⠀⠀⢻⣷⣿⣿⠿⣿⣧⠀⠀⠀⠀⠀⠀⠀⠻⣿⣷⣿⡟⠀⠀⠀⠀⠀⠀
-⢀⣰⣾⣿⠿⣿⣿⣾⣿⠇⠀⠀⠀⠀⠀⠀⠀⢀⣼⣿⣿⣅⠀⠀⠀⠀⠀⠀
-⠀⠰⠊⠁⠀⠙⠪⣿⣿⣶⣤⣄⣀⣀⣀⣤⣶⣿⠟⠋⠙⢿⣷⡄⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⢀⣿⡟⠺⠭⠭⠿⠿⠿⠟⠋⠁⠀⠀⠀⠀⠙⠏⣦⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⢸⡟⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]"""
+def print_splash():
+    """Initial splash: copyleft logo + info, side by side."""
+    click.clear()
 
-def print_banner():
-    table = Table.grid(padding=2)
-    table.add_column()
-    table.add_column()
-    
+    R = "bold #DC2626"  # kırmızı
+    B = "bold white"    # beyaz (iç Ɔ sembolü)
+
+    logo = Text()
+    logo.append("   \u25e4\u2588\u2588\u2588\u2588\u25e5   \n", style=R)
+    logo.append("  \u2588\u2588    \u2588\u2588  \n", style=R)
+    logo.append(" \u2588\u2588 ", style=R)
+    logo.append("\u25e4\u2588\u2588\u2588 ", style=B)
+    logo.append(" \u2588\u2588 \n", style=R)
+    logo.append(" \u2588\u2588 ", style=R)
+    logo.append("\u2588\u2588   ", style=B)
+    logo.append(" \u2588\u2588 \n", style=R)
+    logo.append(" \u2588\u2588 ", style=R)
+    logo.append("\u25be\u2588\u2588\u2588 ", style=B)
+    logo.append(" \u2588\u2588 \n", style=R)
+    logo.append("  \u2588\u2588    \u2588\u2588  \n", style=R)
+    logo.append("   \u25be\u2588\u2588\u2588\u2588\u25bf   ", style=R)
+
     info = Text()
-    info.append("\n\n")
     info.append("free CLI ", style="bold white")
     info.append("v0.1.0\n", style="dim")
-    info.append("Ollama tabanli yerel multi-agent arac · ", style="dim")
+    info.append("Yerel Multi-Agent Cowork · ", style="dim")
+    info.append("Offline\n\n", style="bold cyan")
+    info.append("Coder      ", style="bold")
+    info.append("VRAM (8GB)\n", style="dim")
+    info.append("Research   ", style="bold")
+    info.append("RAM (32GB)\n", style="dim")
+    info.append("Vision     ", style="bold")
+    info.append("VRAM (8GB)\n\n", style="dim")
+
+    cwd = os.getcwd()
+    home = os.path.expanduser("~")
+    display_path = ("~" + cwd[len(home):] if cwd.startswith(home) else cwd).replace("/", "\\")
+    info.append(display_path, style="dim")
+
+    grid = Table.grid(padding=(0, 2))
+    grid.add_column()
+    grid.add_column()
+    grid.add_row(logo, info)
+    console.print(grid)
+    console.print()
+
+def _build_info_text() -> Text:
+    """Splash sonrası /clear gibi yerlerde gösterilen tek satırlık özet (logo'suz)."""
+    info = Text()
+    info.append("free CLI ", style="bold white")
+    info.append("v0.1.0 · ", style="dim")
+    info.append("Yerel Multi-Agent Cowork · ", style="dim")
     info.append("Offline\n", style="bold cyan")
-    cwd = os.path.basename(os.getcwd())
-    info.append(f"~/{cwd}", style="dim")
-    
-    table.add_row(LOGO, info)
-    
-    console.print("\n")
-    console.rule(style="dim")
-    console.print(table)
-    console.rule(style="dim")
-    console.print("\n    [dim]Terminal REPL Session Started...[/]\n")
+
+    cwd = os.getcwd()
+    home = os.path.expanduser("~")
+    display_path = ("~" + cwd[len(home):] if cwd.startswith(home) else cwd).replace("/", "\\")
+    info.append(display_path, style="dim")
+    return info
+
+def _print_info_line():
+    console.print(_build_info_text())
+    console.print()
+
+def print_banner():
+    click.clear()
+    _print_info_line()
 
 def print_result(text: str):
     console.print(Markdown(text))
@@ -289,13 +318,15 @@ def shell(model: str, confirm_writes: bool):
             f'<b>F2</b> thinking{mode}  <b>/confirm</b> writes{confirm_mode} '
         )
 
+    placeholder = HTML('<style fg="#5f5f5f">Bana ne yaptırmak istersin? · yardım için "?"</style>')
+
     session = PromptSession(key_bindings=kb, history=FileHistory(HISTORY_PATH))
-    print_banner()
+    print_splash()
     pinned_model = None
 
     while True:
         try:
-            prompt = session.prompt("❯ ", bottom_toolbar=bottom_toolbar)
+            prompt = session.prompt("❯ ", bottom_toolbar=bottom_toolbar, placeholder=placeholder)
         except (KeyboardInterrupt, EOFError):
             break
             
