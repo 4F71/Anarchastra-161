@@ -137,6 +137,16 @@ def review(prompt: str, model: str, confirm_writes: bool):
 
 
 @free.command()
+@click.option("--paths", default="", help="Virgülle ayrılmış, indexlenecek dosya yolları (boşsa tüm proje taranır).")
+def index(paths: str):
+    """Kod tabanını anlamsal arama (search_codebase) için yerel vektör veritabanına indexler."""
+    from tools.rag_ops import index_codebase
+    with console.status("[bold cyan]Indexleniyor (nomic-embed-text ile)...[/]"):
+        result = index_codebase(paths)
+    console.print(f"[dim]{result}[/]")
+
+
+@free.command()
 @click.argument("image_path")
 @click.argument("prompt")
 @click.option("--model", default=DEFAULT_VISION_MODEL, show_default=True)
@@ -300,6 +310,13 @@ def shell(model: str, confirm_writes: bool):
                 f.write("\n".join(lines))
             console.print(f"[dim]💾 Kaydedildi: workspace/{save_name}[/]")
             continue
+        elif prompt.startswith("/index"):
+            from tools.rag_ops import index_codebase
+            target_paths = prompt[len("/index"):].strip()
+            with console.status("[bold cyan]Indexleniyor (nomic-embed-text ile)...[/]"):
+                result = index_codebase(target_paths)
+            console.print(f"[dim]📚 {result}[/]")
+            continue
         elif prompt.startswith("/model"):
             target = prompt[len("/model"):].strip()
             if not target:
@@ -331,7 +348,8 @@ def shell(model: str, confirm_writes: bool):
         elif prompt == "?":
             console.print(
                 "[dim]Komutlar: /exit, /clear, /verbose (thinking log), /confirm (yazma onayi), "
-                "/save (oturumu kaydet), /model <isim> (manuel model degisimi), /look <soru>, "
+                "/save (oturumu kaydet), /index [yollar] (kod tabanini indexle), "
+                "/model <isim> (manuel model degisimi), /look <soru>, "
                 "veya direkt yaz.[/]"
             )
             continue
