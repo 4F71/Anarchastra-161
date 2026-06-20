@@ -167,6 +167,18 @@ def review(prompt: str, model: str, confirm_writes: bool):
 
 
 @free.command()
+@click.option("--steps", default=1, show_default=True, help="Geri alinacak islem sayisi.")
+@click.option("--list", "show_list", is_flag=True, help="Gecmisi listele, geri alma yapma.")
+def rollback(steps: int, show_list: bool):
+    """write_file/edit_file ile yapilan son degisiklikleri geri alir."""
+    from tools.rollback_ops import rollback as do_rollback, rollback_history
+    if show_list:
+        console.print(rollback_history())
+    else:
+        console.print(do_rollback(steps))
+
+
+@free.command()
 @click.option("--paths", default="", help="Virgülle ayrılmış, indexlenecek dosya yolları (boşsa tüm proje taranır).")
 def index(paths: str):
     """Kod tabanını anlamsal arama (search_codebase) için yerel vektör veritabanına indexler."""
@@ -365,6 +377,15 @@ def shell(model: str, confirm_writes: bool):
                 f.write("\n".join(lines))
             console.print(f"[dim]💾 Kaydedildi: workspace/{save_name}[/]")
             continue
+        elif prompt.startswith("/rollback"):
+            from tools.rollback_ops import rollback as do_rollback, rollback_history
+            arg = prompt[len("/rollback"):].strip()
+            if arg == "list":
+                console.print(f"[dim]{rollback_history()}[/]")
+            else:
+                steps = int(arg) if arg.isdigit() else 1
+                console.print(f"[dim]↩️  {do_rollback(steps)}[/]")
+            continue
         elif prompt.startswith("/index"):
             from tools.rag_ops import index_codebase
             target_paths = prompt[len("/index"):].strip()
@@ -404,6 +425,7 @@ def shell(model: str, confirm_writes: bool):
             console.print(
                 "[dim]Komutlar: /exit, /clear, /verbose (thinking log), /confirm (yazma onayi), "
                 "/save (oturumu kaydet), /index [yollar] (kod tabanini indexle), "
+                "/rollback [N|list] (son N write_file/edit_file islemini geri al), "
                 "/model <isim> (manuel model degisimi), /look <soru>, "
                 "veya direkt yaz.[/]"
             )

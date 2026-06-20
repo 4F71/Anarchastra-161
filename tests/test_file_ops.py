@@ -3,12 +3,15 @@ import os
 import pytest
 
 from tools.file_ops import WORKSPACE_ROOT, edit_file, write_file
+from tools.rollback_ops import rollback
 
 
-def test_write_file_creates_bak_on_overwrite():
+def test_write_file_overwrite_is_rollback_recoverable():
     write_file("edit_target.txt", "v1")
     write_file("edit_target.txt", "v2")
-    assert os.path.exists(os.path.join(WORKSPACE_ROOT, "edit_target.txt.bak"))
+    rollback(1)
+    with open(os.path.join(WORKSPACE_ROOT, "edit_target.txt"), encoding="utf-8") as f:
+        assert f.read() == "v1"
 
 
 def test_edit_file_replaces_unique_match():

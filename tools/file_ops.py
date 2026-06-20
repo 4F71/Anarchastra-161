@@ -2,7 +2,8 @@
 
 import base64
 import os
-import shutil
+
+from tools.rollback_ops import record_snapshot
 
 WORKSPACE_ROOT = os.path.realpath(
     os.path.join(os.path.dirname(__file__), "..", "workspace")
@@ -36,8 +37,7 @@ def read_file(path: str) -> str:
 
 def write_file(path: str, content: str) -> str:
     target = resolve_write_path(path)
-    if os.path.isfile(target):
-        shutil.copy2(target, target + ".bak")
+    record_snapshot(path, target)
     os.makedirs(os.path.dirname(target), exist_ok=True)
     with open(target, "w", encoding="utf-8") as f:
         f.write(content)
@@ -58,7 +58,7 @@ def edit_file(path: str, old_string: str, new_string: str) -> str:
     if count > 1:
         raise ValueError(f"old_string {count} kez geciyor, daha spesifik (benzersiz) bir metin ver")
 
-    shutil.copy2(target, target + ".bak")
+    record_snapshot(path, target)
     new_text = text.replace(old_string, new_string, 1)
     with open(target, "w", encoding="utf-8") as f:
         f.write(new_text)
