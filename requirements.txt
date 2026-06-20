@@ -9,3 +9,5 @@ Pillow>=10.0.0
 duckduckgo-search>=6.0
 ddgs>=9.0
 beautifulsoup4>=4.12
+chromadb>=0.5
+langchain-text-splitters>=0.0.2

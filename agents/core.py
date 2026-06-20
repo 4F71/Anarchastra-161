@@ -72,6 +72,15 @@ class OllamaClient:
         )
         logger.info("unloaded model=%s", model_id)
 
+    def embed(self, model: str, text: str) -> list[float]:
+        resp = requests.post(
+            f"{self.host}/api/embeddings",
+            json={"model": model, "prompt": text},
+            timeout=60,
+        )
+        resp.raise_for_status()
+        return resp.json().get("embedding", [])
+
     def chat(self, model: str, messages: list[dict], tools: list[dict] | None = None,
               options: dict | None = None, format: str | None = None) -> dict:
         payload = {"model": model, "messages": messages, "stream": False}

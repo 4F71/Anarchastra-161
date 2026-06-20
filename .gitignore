@@ -9,6 +9,7 @@ venv/
 workspace/
 logs/
 *.log
+.rag_index/
 
 # Gizli / kişisel dosyalar
 private/
