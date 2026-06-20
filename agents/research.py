@@ -2,6 +2,10 @@
 
 from agents.core import DEFAULT_RESEARCH_MODEL, ModelManager, OllamaClient, run_agent_loop
 from tools.file_ops import FILE_TOOLS_SCHEMA, TOOL_EXECUTOR
+from tools.rag_ops import RAG_TOOLS_SCHEMA, RAG_TOOL_EXECUTOR
+
+RESEARCH_TOOLS_SCHEMA = FILE_TOOLS_SCHEMA + RAG_TOOLS_SCHEMA
+RESEARCH_TOOL_EXECUTOR = {**TOOL_EXECUTOR, **RAG_TOOL_EXECUTOR}
 
 RESEARCH_SYSTEM_PROMPT = (
     "Sen 'free research' ajanısın. Kullanıcının sorusunu doğrudan araştıran OTONOM bir ajansın.\n\n"
@@ -10,6 +14,8 @@ RESEARCH_SYSTEM_PROMPT = (
     "  - Domain/alan adı soruları → whois_lookup(domain='example.com') kullan\n"
     "  - Güncel haber/bilgi/teknik sorular → web_search(query='...') kullan\n"
     "  - URL'yi detaylı okumak istiyorsan → fetch_url(url='https://...') kullan\n"
+    "  - Bu projenin kod tabanıyla ilgili (mimari, hangi dosyada ne var) sorular → "
+    "search_codebase(query='...') kullan\n"
     "KURAL 3: Araç sonucunu aynen kullan. ASLA araç sonucunu yok say veya uydurma!\n"
     "KURAL 4: YANIT YALNIZCA TÜRKÇE.\n\n"
     "Araç çağırma formatı (SADECE BU JSON, başka hiçbir şey yazma):\n"
@@ -36,6 +42,6 @@ class ResearchAgent:
             self.client,
             self.model,
             messages,
-            tools_schema=FILE_TOOLS_SCHEMA,
-            tool_executor=TOOL_EXECUTOR,
+            tools_schema=RESEARCH_TOOLS_SCHEMA,
+            tool_executor=RESEARCH_TOOL_EXECUTOR,
         )
