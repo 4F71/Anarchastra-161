@@ -8,6 +8,8 @@ from logging.handlers import RotatingFileHandler
 
 import requests
 import agents.config as config
+import tools.network_guard  # noqa: F401 — Session.request/httpx.Client.send guard'ini kurar
+from tools.audit_ops import append_event
 
 LOG_DIR = os.path.join(os.path.dirname(__file__), "..", "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
@@ -76,6 +78,8 @@ class OllamaClient:
             timeout=30,
         )
         logger.info("unloaded model=%s", model_id)
+        if config.audit_enabled:
+            append_event("model_unload", {"model": model_id})
 
     def embed(self, model: str, text: str) -> list[float]:
         resp = requests.post(
@@ -161,6 +165,9 @@ class ModelManager:
             logger.info("unloading model=%s to free VRAM for %s", base, target)
             self.client.unload(name)
 
+        if config.audit_enabled:
+            append_event("model_load", {"model": target})
+
         return info
 
 
@@ -213,6 +220,13 @@ def run_agent_loop(
 ) -> str:
     """Drives the chat/tool-call loop until the model returns a final text answer."""
     tool_executor = tool_executor or {}
+    tools_schema = tools_schema or []
+
+    if config.no_network:
+        blocked = {"whois_lookup", "web_search", "fetch_url"}
+        tools_schema = [t for t in tools_schema if t.get("function", {}).get("name") not in blocked]
+        tool_executor = {k: v for k, v in tool_executor.items() if k not in blocked}
+
     options = options or {"temperature": 0.3, "repeat_penalty": 1.2, "top_p": 0.9}
     history = messages
 
@@ -270,6 +284,8 @@ def run_agent_loop(
             args = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
 
             logger.info("tool_call name=%s args=%s", name, args)
+            if config.audit_enabled:
+                append_event("tool_call", {"name": name, "args": args})
             console.print(f"[dim]⚙️  Çalıştırılıyor: {name}({args})...[/]")
 
             if name in ("write_file", "edit_file") and config.confirm_writes:
