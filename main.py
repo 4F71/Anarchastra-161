@@ -118,8 +118,10 @@ def free(ctx):
 @click.argument("prompt")
 @click.option("--model", default=DEFAULT_CODER_MODEL, show_default=True)
 @click.option("--confirm-writes", is_flag=True, help="write_file/edit_file calistirilmadan once onay sor.")
-def code(prompt: str, model: str, confirm_writes: bool):
+@click.option("--no-network", is_flag=True, help="Air-gapped mod: web araclarini kapat, sadece localhost'a izin ver.")
+def code(prompt: str, model: str, confirm_writes: bool, no_network: bool):
     agent_config.confirm_writes = confirm_writes
+    agent_config.no_network = no_network
     agent = CoderAgent(model=model)
     try:
         print_result(agent.run(prompt, mode="code"))
@@ -131,8 +133,10 @@ def code(prompt: str, model: str, confirm_writes: bool):
 @click.argument("prompt")
 @click.option("--model", default=DEFAULT_CODER_MODEL, show_default=True)
 @click.option("--confirm-writes", is_flag=True, help="write_file/edit_file calistirilmadan once onay sor.")
-def debug(prompt: str, model: str, confirm_writes: bool):
+@click.option("--no-network", is_flag=True, help="Air-gapped mod: web araclarini kapat, sadece localhost'a izin ver.")
+def debug(prompt: str, model: str, confirm_writes: bool, no_network: bool):
     agent_config.confirm_writes = confirm_writes
+    agent_config.no_network = no_network
     agent = CoderAgent(model=model)
     try:
         print_result(agent.run(prompt, mode="debug"))
@@ -144,8 +148,10 @@ def debug(prompt: str, model: str, confirm_writes: bool):
 @click.argument("prompt")
 @click.option("--model", default=DEFAULT_RESEARCH_MODEL, show_default=True)
 @click.option("--confirm-writes", is_flag=True, help="write_file/edit_file calistirilmadan once onay sor.")
-def research(prompt: str, model: str, confirm_writes: bool):
+@click.option("--no-network", is_flag=True, help="Air-gapped mod: web araclarini kapat, sadece localhost'a izin ver.")
+def research(prompt: str, model: str, confirm_writes: bool, no_network: bool):
     agent_config.confirm_writes = confirm_writes
+    agent_config.no_network = no_network
     agent = ResearchAgent(model=model)
     try:
         print_result(agent.run(prompt))
@@ -157,8 +163,10 @@ def research(prompt: str, model: str, confirm_writes: bool):
 @click.argument("prompt")
 @click.option("--model", default=DEFAULT_CODER_MODEL, show_default=True)
 @click.option("--confirm-writes", is_flag=True, help="write_file/edit_file calistirilmadan once onay sor.")
-def review(prompt: str, model: str, confirm_writes: bool):
+@click.option("--no-network", is_flag=True, help="Air-gapped mod: web araclarini kapat, sadece localhost'a izin ver.")
+def review(prompt: str, model: str, confirm_writes: bool, no_network: bool):
     agent_config.confirm_writes = confirm_writes
+    agent_config.no_network = no_network
     agent = ReviewerAgent(model=model)
     try:
         print_result(agent.run(prompt))
@@ -176,6 +184,36 @@ def rollback(steps: int, show_list: bool):
         console.print(rollback_history())
     else:
         console.print(do_rollback(steps))
+
+
+@free.command()
+@click.argument("text")
+@click.option("--tag", default="", help="Opsiyonel kisa etiket, orn: 'model-secimi'.")
+def remember(text: str, tag: str):
+    """Bir karari/notu kalici proje hafizasina kaydeder."""
+    from tools.memory_ops import remember as do_remember
+    console.print(do_remember(text, tag))
+
+
+@free.command()
+@click.option("--query", default="", help="Aranacak anahtar kelime (bossa son kayitlari listeler).")
+@click.option("--n", default=10, show_default=True, help="Gosterilecek maksimum kayit sayisi.")
+def memory(query: str, n: int):
+    """Kayitli proje kararlarini listeler/arar."""
+    from tools.memory_ops import recall
+    console.print(recall(query, n))
+
+
+@free.command()
+@click.option("--verify", is_flag=True, help="Hash zincirini dogrula.")
+@click.option("--lines", default=10, show_default=True, help="Gosterilecek son kayit sayisi.")
+def audit(verify: bool, lines: int):
+    """Kriptografik denetim izini gosterir veya dogrular."""
+    from tools.audit_ops import audit_tail, verify_chain
+    if verify:
+        console.print(verify_chain())
+    else:
+        console.print(audit_tail(lines))
 
 
 @free.command()
@@ -300,9 +338,11 @@ def capture_snipping_tool(save_path: str) -> bool:
 @free.command()
 @click.option("--model", default=DEFAULT_CODER_MODEL, show_default=True)
 @click.option("--confirm-writes", is_flag=True, help="write_file/edit_file calistirilmadan once onay sor.")
-def shell(model: str, confirm_writes: bool):
+@click.option("--no-network", is_flag=True, help="Air-gapped mod: web araclarini kapat, sadece localhost'a izin ver.")
+def shell(model: str, confirm_writes: bool, no_network: bool):
     """Sürekli calisan, etkilesimli REPL modunu baslatir."""
     agent_config.confirm_writes = confirm_writes
+    agent_config.no_network = no_network
     client = OllamaClient()
     manager = ModelManager(client)
     
@@ -325,9 +365,11 @@ def shell(model: str, confirm_writes: bool):
     def bottom_toolbar():
         mode = " 🔍 ON" if agent_config.verbose else ""
         confirm_mode = " ⚠️ ON" if agent_config.confirm_writes else ""
+        airgap_mode = " 🔒 ON" if agent_config.no_network else ""
         return HTML(
             f' <b>?</b> help  <b>/exit</b> quit  <b>/clear</b> clear  '
-            f'<b>F2</b> thinking{mode}  <b>/confirm</b> writes{confirm_mode} '
+            f'<b>F2</b> thinking{mode}  <b>/confirm</b> writes{confirm_mode}  '
+            f'<b>/airgap</b> network{airgap_mode} '
         )
 
     placeholder = HTML('<style fg="#5f5f5f">Bana ne yaptırmak istersin? · yardım için "?"</style>')
@@ -335,6 +377,13 @@ def shell(model: str, confirm_writes: bool):
     session = PromptSession(key_bindings=kb, history=FileHistory(HISTORY_PATH))
     print_splash()
     pinned_model = None
+
+    def _memory_context() -> str:
+        from tools.memory_ops import recall
+        recent = recall(n=5)
+        if "bos" in recent or "bulunamadi" in recent:
+            return ""
+        return "\n\nBu projede daha once alinan bazi kararlar:\n" + recent
 
     while True:
         try:
@@ -361,6 +410,34 @@ def shell(model: str, confirm_writes: bool):
             state = agent_config.toggle_confirm_writes()
             label = "AÇIK ✅" if state else "KAPALI ❌"
             console.print(f"[dim]⚠️  write_file/edit_file onayi: {label}[/]")
+            continue
+        elif prompt == "/airgap":
+            state = agent_config.toggle_no_network()
+            label = "AÇIK 🔒" if state else "KAPALI 🌐"
+            console.print(f"[dim]Air-gapped mod: {label}[/]")
+            continue
+        elif prompt.startswith("/remember"):
+            from tools.memory_ops import remember as do_remember
+            text = prompt[len("/remember"):].strip()
+            if not text:
+                console.print("[dim]Kullanim: /remember <kaydedilecek karar/not>[/]")
+            else:
+                console.print(f"[dim]🧠 {do_remember(text)}[/]")
+                messages[0]["content"] += f"\n[Hatirlanan: {text}]"
+            continue
+        elif prompt.startswith("/memory"):
+            from tools.memory_ops import recall
+            arg = prompt[len("/memory"):].strip()
+            n = int(arg) if arg.isdigit() else 10
+            console.print(f"[dim]{recall(n=n)}[/]")
+            continue
+        elif prompt.startswith("/audit"):
+            from tools.audit_ops import audit_tail, verify_chain
+            arg = prompt[len("/audit"):].strip()
+            if arg == "verify":
+                console.print(f"[dim]{verify_chain()}[/]")
+            else:
+                console.print(f"[dim]{audit_tail()}[/]")
             continue
         elif prompt == "/save":
             import datetime
@@ -426,6 +503,8 @@ def shell(model: str, confirm_writes: bool):
                 "[dim]Komutlar: /exit, /clear, /verbose (thinking log), /confirm (yazma onayi), "
                 "/save (oturumu kaydet), /index [yollar] (kod tabanini indexle), "
                 "/rollback [N|list] (son N write_file/edit_file islemini geri al), "
+                "/airgap (air-gapped mod ac/kapa), /remember <metin> (karar kaydet), "
+                "/memory [N] (kayitli kararlari listele), /audit [verify] (denetim izini goster/dogrula), "
                 "/model <isim> (manuel model degisimi), /look <soru>, "
                 "veya direkt yaz.[/]"
             )
@@ -490,6 +569,8 @@ def shell(model: str, confirm_writes: bool):
         else:
             messages[0] = {"role": "system", "content": CODE_SYSTEM_PROMPT}
             tools_schema, tool_executor = CODER_TOOLS_SCHEMA, CODER_TOOL_EXECUTOR
+
+        messages[0]["content"] += _memory_context()
 
         try:
             result = run_agent_loop(
