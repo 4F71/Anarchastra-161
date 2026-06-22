@@ -119,9 +119,11 @@ def free(ctx):
 @click.option("--model", default=DEFAULT_CODER_MODEL, show_default=True)
 @click.option("--confirm-writes", is_flag=True, help="write_file/edit_file calistirilmadan once onay sor.")
 @click.option("--no-network", is_flag=True, help="Air-gapped mod: web araclarini kapat, sadece localhost'a izin ver.")
-def code(prompt: str, model: str, confirm_writes: bool, no_network: bool):
+@click.option("--ctx", type=int, default=None, help="Ollama num_ctx override (varsayilan: model registry/DEFAULT_NUM_CTX).")
+def code(prompt: str, model: str, confirm_writes: bool, no_network: bool, ctx: int | None):
     agent_config.confirm_writes = confirm_writes
     agent_config.no_network = no_network
+    agent_config.ctx_override = ctx
     agent = CoderAgent(model=model)
     try:
         print_result(agent.run(prompt, mode="code"))
@@ -134,9 +136,11 @@ def code(prompt: str, model: str, confirm_writes: bool, no_network: bool):
 @click.option("--model", default=DEFAULT_CODER_MODEL, show_default=True)
 @click.option("--confirm-writes", is_flag=True, help="write_file/edit_file calistirilmadan once onay sor.")
 @click.option("--no-network", is_flag=True, help="Air-gapped mod: web araclarini kapat, sadece localhost'a izin ver.")
-def debug(prompt: str, model: str, confirm_writes: bool, no_network: bool):
+@click.option("--ctx", type=int, default=None, help="Ollama num_ctx override (varsayilan: model registry/DEFAULT_NUM_CTX).")
+def debug(prompt: str, model: str, confirm_writes: bool, no_network: bool, ctx: int | None):
     agent_config.confirm_writes = confirm_writes
     agent_config.no_network = no_network
+    agent_config.ctx_override = ctx
     agent = CoderAgent(model=model)
     try:
         print_result(agent.run(prompt, mode="debug"))
@@ -149,9 +153,11 @@ def debug(prompt: str, model: str, confirm_writes: bool, no_network: bool):
 @click.option("--model", default=DEFAULT_RESEARCH_MODEL, show_default=True)
 @click.option("--confirm-writes", is_flag=True, help="write_file/edit_file calistirilmadan once onay sor.")
 @click.option("--no-network", is_flag=True, help="Air-gapped mod: web araclarini kapat, sadece localhost'a izin ver.")
-def research(prompt: str, model: str, confirm_writes: bool, no_network: bool):
+@click.option("--ctx", type=int, default=None, help="Ollama num_ctx override (varsayilan: model registry/DEFAULT_NUM_CTX).")
+def research(prompt: str, model: str, confirm_writes: bool, no_network: bool, ctx: int | None):
     agent_config.confirm_writes = confirm_writes
     agent_config.no_network = no_network
+    agent_config.ctx_override = ctx
     agent = ResearchAgent(model=model)
     try:
         print_result(agent.run(prompt))
@@ -164,9 +170,11 @@ def research(prompt: str, model: str, confirm_writes: bool, no_network: bool):
 @click.option("--model", default=DEFAULT_CODER_MODEL, show_default=True)
 @click.option("--confirm-writes", is_flag=True, help="write_file/edit_file calistirilmadan once onay sor.")
 @click.option("--no-network", is_flag=True, help="Air-gapped mod: web araclarini kapat, sadece localhost'a izin ver.")
-def review(prompt: str, model: str, confirm_writes: bool, no_network: bool):
+@click.option("--ctx", type=int, default=None, help="Ollama num_ctx override (varsayilan: model registry/DEFAULT_NUM_CTX).")
+def review(prompt: str, model: str, confirm_writes: bool, no_network: bool, ctx: int | None):
     agent_config.confirm_writes = confirm_writes
     agent_config.no_network = no_network
+    agent_config.ctx_override = ctx
     agent = ReviewerAgent(model=model)
     try:
         print_result(agent.run(prompt))
@@ -339,10 +347,12 @@ def capture_snipping_tool(save_path: str) -> bool:
 @click.option("--model", default=DEFAULT_CODER_MODEL, show_default=True)
 @click.option("--confirm-writes", is_flag=True, help="write_file/edit_file calistirilmadan once onay sor.")
 @click.option("--no-network", is_flag=True, help="Air-gapped mod: web araclarini kapat, sadece localhost'a izin ver.")
-def shell(model: str, confirm_writes: bool, no_network: bool):
+@click.option("--ctx", type=int, default=None, help="Ollama num_ctx override (varsayilan: model registry/DEFAULT_NUM_CTX).")
+def shell(model: str, confirm_writes: bool, no_network: bool, ctx: int | None):
     """Sürekli calisan, etkilesimli REPL modunu baslatir."""
     agent_config.confirm_writes = confirm_writes
     agent_config.no_network = no_network
+    agent_config.ctx_override = ctx
     client = OllamaClient()
     manager = ModelManager(client)
     
@@ -415,6 +425,20 @@ def shell(model: str, confirm_writes: bool, no_network: bool):
             state = agent_config.toggle_no_network()
             label = "AÇIK 🔒" if state else "KAPALI 🌐"
             console.print(f"[dim]Air-gapped mod: {label}[/]")
+            continue
+        elif prompt.startswith("/ctx"):
+            arg = prompt[len("/ctx"):].strip()
+            if not arg:
+                current = agent_config.ctx_override or "varsayilan (model registry)"
+                console.print(f"[dim]Mevcut num_ctx: {current}. Kullanim: /ctx <n> veya /ctx reset[/]")
+            elif arg == "reset":
+                agent_config.ctx_override = None
+                console.print("[dim]num_ctx override kaldirildi, model registry/varsayilan kullanilacak.[/]")
+            elif arg.isdigit():
+                agent_config.ctx_override = int(arg)
+                console.print(f"[dim]num_ctx override: {arg}[/]")
+            else:
+                console.print("[dim]Kullanim: /ctx <n> veya /ctx reset[/]")
             continue
         elif prompt.startswith("/remember"):
             from tools.memory_ops import remember as do_remember
@@ -505,7 +529,7 @@ def shell(model: str, confirm_writes: bool, no_network: bool):
                 "/rollback [N|list] (son N write_file/edit_file islemini geri al), "
                 "/airgap (air-gapped mod ac/kapa), /remember <metin> (karar kaydet), "
                 "/memory [N] (kayitli kararlari listele), /audit [verify] (denetim izini goster/dogrula), "
-                "/model <isim> (manuel model degisimi), /look <soru>, "
+                "/model <isim> (manuel model degisimi), /ctx <n>|reset (num_ctx override), /look <soru>, "
                 "veya direkt yaz.[/]"
             )
             continue
