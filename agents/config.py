@@ -4,6 +4,7 @@ verbose: bool = False
 confirm_writes: bool = False
 no_network: bool = False
 audit_enabled: bool = False
+ctx_override: int | None = None
 
 
 def toggle_verbose() -> bool:

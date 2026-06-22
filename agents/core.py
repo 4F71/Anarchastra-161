@@ -27,11 +27,18 @@ OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
 # sigmiyor; coder icin Qwen2.5-Coder-7B, research icin Hermes3-8B, vision
 # icin Qwen3-VL-8B ile degistirildi (hepsi Ollama'da tool-calling destekli).
 MODEL_REGISTRY = {
-    "qwen2.5-coder": {"pool": "vram_native", "max_ctx": None, "role": "coder"},
-    "hermes3": {"pool": "vram_heavy", "max_ctx": None, "role": "research"},
-    "qwen3-vl": {"pool": "vram_native", "max_ctx": None, "role": "vision"},
-    "mistral-nemo": {"pool": "vram_heavy", "max_ctx": None, "role": "codebase"},
+    "qwen2.5-coder": {"pool": "vram_native", "max_ctx": 8192, "role": "coder"},
+    "hermes3": {"pool": "vram_heavy", "max_ctx": 16384, "role": "research"},
+    "qwen3-vl": {"pool": "vram_native", "max_ctx": 6144, "role": "vision"},
+    "mistral-nemo": {"pool": "vram_heavy", "max_ctx": 16384, "role": "codebase"},
 }
+
+# Registry'de olmayan modeller (orn. main.py'deki guncel coder modeli) icin
+# fallback context penceresi. Bu degerler donanim olcumunden kesin turetilmedi
+# (KV-cache quantizasyonu/layer sayisi canli nvidia-smi olcumu gerektirir);
+# baslangic noktasi olarak isaretlenmistir — OOM/yavaslama gorulurse dusur,
+# context kirpilmasi hissi olursa yukselt (--ctx ile override edilebilir).
+DEFAULT_NUM_CTX = 8192
 
 # Yaklasik VRAM kullanim tahmini (GB) — CLAUDE.md model_registry runtime_profile
 # notlarindan alindi, sadece `free status` icinde bilgilendirme amacli.
@@ -54,6 +61,14 @@ MAX_TURNS_DEFAULT = 8
 
 def _base_name(model_id: str) -> str:
     return model_id.split(":")[0]
+
+
+def _num_ctx_for(model_id: str) -> int:
+    """ctx_override > registry'deki max_ctx > DEFAULT_NUM_CTX sirasiyla cozumlenir."""
+    if config.ctx_override:
+        return config.ctx_override
+    info = MODEL_REGISTRY.get(_base_name(model_id), {})
+    return info.get("max_ctx") or DEFAULT_NUM_CTX
 
 
 class OllamaClient:
@@ -228,6 +243,7 @@ def run_agent_loop(
         tool_executor = {k: v for k, v in tool_executor.items() if k not in blocked}
 
     options = options or {"temperature": 0.3, "repeat_penalty": 1.2, "top_p": 0.9}
+    options.setdefault("num_ctx", _num_ctx_for(model))
     history = messages
 
     for turn in range(max_turns):
@@ -247,6 +263,7 @@ def run_agent_loop(
         content = message.get("content", "")
         
         # Fallback parser if the model leaks the tool call JSON into content
+        malformed_tool_call = False
         if not tool_calls and content:
             start, json_str = _find_first_balanced_json_object(content)
             if json_str is not None:
@@ -257,11 +274,29 @@ def run_agent_loop(
                         # Remove the JSON from content so we don't display it raw
                         content = content[:start].strip()
                         message["content"] = content
+                    else:
+                        malformed_tool_call = True
                 except Exception as e:
                     logger.warning("Fallback JSON parse error: %s", e)
+                    malformed_tool_call = True
 
         # Append assistant message to history
         history.append(message)
+
+        if malformed_tool_call:
+            console.print("[dim]⚠️  Geçersiz/eksik JSON araç çağrısı tespit edildi, modelden tekrar isteniyor...[/]")
+            if config.audit_enabled:
+                append_event("tool_call_retry", {"model": model, "raw_content": content})
+            history.append({
+                "role": "user",
+                "content": (
+                    "[SİSTEM UYARISI]: Önceki cevabındaki JSON araç çağrısı geçersiz veya eksikti "
+                    "('name'/'arguments' alanları eksik ya da parse edilemedi). SADECE şu formatta "
+                    "geçerli bir JSON nesnesi döndür, başka hiçbir metin yazma:\n"
+                    "{\"name\": \"<arac_adi>\", \"arguments\": {...}}"
+                ),
+            })
+            continue
 
         if config.verbose and content:
             console.print(f"\n[dim]⏱️  Süre: {elapsed:.1f}s[/]")
