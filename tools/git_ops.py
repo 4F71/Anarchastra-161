@@ -39,6 +39,11 @@ def git_log(path: str = "", max_count: int = 10) -> str:
     return _run_git(args)
 
 
+def git_status() -> str:
+    """Shows staged/unstaged/untracked file state (short format)."""
+    return _run_git(["status", "--short"])
+
+
 GIT_TOOLS_SCHEMA = [
     {
         "type": "function",
@@ -78,9 +83,22 @@ GIT_TOOLS_SCHEMA = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "git_status",
+            "description": "Show staged/unstaged/untracked file state (read-only, short format). Use to see which files changed without showing the full diff.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+            },
+        },
+    },
 ]
 
 GIT_TOOL_EXECUTOR = {
     "git_diff": git_diff,
     "git_log": git_log,
+    "git_status": git_status,
 }

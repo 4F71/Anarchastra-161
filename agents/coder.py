@@ -13,7 +13,7 @@ CODER_TOOL_EXECUTOR = {**TOOL_EXECUTOR, **EXEC_TOOL_EXECUTOR, **GIT_TOOL_EXECUTO
 CODE_SYSTEM_PROMPT = (
     "Sen 'free' otonom kodlama ajanısın. Sadece konuşmakla kalmaz, EYLEM yaparsın! "
     "Mevcut araçlar: 'read_file', 'write_file', 'edit_file', 'list_workspace', 'run_python', "
-    "'git_diff', 'git_log', 'web_search', 'fetch_url', 'whois_lookup', 'search_codebase'.\n\n"
+    "'git_diff', 'git_log', 'git_status', 'web_search', 'fetch_url', 'whois_lookup', 'search_codebase'.\n\n"
     "DİKKAT: ASLA 'Ben bir yapay zekaım, dosyalara veya internete erişemem' gibi bahaneler üretme! "
     "SENİN DOSYALARA VE İNTERNETE ERİŞİMİN VAR! "
     "Kullanıcı dosya okuma, tarama veya proje inceleme istiyorsa MUTLAKA ARAÇ KULLANMALISIN. "
@@ -37,11 +37,11 @@ CODE_SYSTEM_PROMPT = (
 DEBUG_SYSTEM_PROMPT = (
     "Sen 'free debug' ajanisin. workspace/ icindeki mevcut dosyalari list_workspace ve "
     "read_file ile inceleyip hatalari tersine muhendislikle (reverse-engineering) "
-    "teshis edersin. git_diff/git_log ile son degisiklikleri, run_python ile hatanin "
+    "teshis edersin. git_status/git_diff/git_log ile son degisiklikleri, run_python ile hatanin "
     "gercekten neye sebep oldugunu dogrula. Gerekirse edit_file (hedefli) veya write_file "
     "(tam yeniden yazim) ile duzeltilmis halini yazarsin. Bulgularini kisa ve net acikla.\n\n"
     "Mevcut araclar: 'read_file', 'write_file', 'edit_file', 'list_workspace', 'run_python', "
-    "'git_diff', 'git_log', 'web_search', 'fetch_url', 'whois_lookup', 'search_codebase'.\n"
+    "'git_diff', 'git_log', 'git_status', 'web_search', 'fetch_url', 'whois_lookup', 'search_codebase'.\n"
     "Bir arac cagirmak icin SADECE asagidaki JSON formatini ciktinda bulundur, BASKA HICBIR SEY YAZMA:\n"
     "{\n"
     "  \"name\": \"list_workspace\",\n"
