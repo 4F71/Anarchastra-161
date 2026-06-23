@@ -35,6 +35,11 @@ def run_mypy(path: str = "workspace") -> str:
     return _run(["mypy", "--ignore-missing-imports", target], path)
 
 
+def run_pytest(path: str = "workspace") -> str:
+    target = resolve_read_path(path)
+    return _run(["python", "-m", "pytest", target, "-q"], path)
+
+
 STATIC_ANALYSIS_TOOLS_SCHEMA = [
     {
         "type": "function",
@@ -70,9 +75,27 @@ STATIC_ANALYSIS_TOOLS_SCHEMA = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_pytest",
+            "description": "Run pytest on a file or directory inside the workspace sandbox.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Path relative to the project root. Defaults to workspace/.",
+                    }
+                },
+                "required": [],
+            },
+        },
+    },
 ]
 
 STATIC_ANALYSIS_EXECUTOR = {
     "run_ruff": run_ruff,
     "run_mypy": run_mypy,
+    "run_pytest": run_pytest,
 }
