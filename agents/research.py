@@ -4,9 +4,10 @@ from agents.core import DEFAULT_RESEARCH_MODEL, ModelManager, OllamaClient, run_
 from tools.file_ops import FILE_TOOLS_SCHEMA, TOOL_EXECUTOR
 from tools.rag_ops import RAG_TOOLS_SCHEMA, RAG_TOOL_EXECUTOR
 from tools.memory_ops import MEMORY_TOOLS_SCHEMA, MEMORY_TOOL_EXECUTOR
+from tools.grep_ops import GREP_TOOLS_SCHEMA, GREP_TOOL_EXECUTOR
 
-RESEARCH_TOOLS_SCHEMA = FILE_TOOLS_SCHEMA + RAG_TOOLS_SCHEMA + MEMORY_TOOLS_SCHEMA
-RESEARCH_TOOL_EXECUTOR = {**TOOL_EXECUTOR, **RAG_TOOL_EXECUTOR, **MEMORY_TOOL_EXECUTOR}
+RESEARCH_TOOLS_SCHEMA = FILE_TOOLS_SCHEMA + RAG_TOOLS_SCHEMA + MEMORY_TOOLS_SCHEMA + GREP_TOOLS_SCHEMA
+RESEARCH_TOOL_EXECUTOR = {**TOOL_EXECUTOR, **RAG_TOOL_EXECUTOR, **MEMORY_TOOL_EXECUTOR, **GREP_TOOL_EXECUTOR}
 
 RESEARCH_SYSTEM_PROMPT = (
     "Sen 'free research' ajanısın. Kullanıcının sorusunu doğrudan araştıran OTONOM bir ajansın.\n\n"
@@ -17,6 +18,8 @@ RESEARCH_SYSTEM_PROMPT = (
     "  - URL'yi detaylı okumak istiyorsan → fetch_url(url='https://...') kullan\n"
     "  - Bu projenin kod tabanıyla ilgili (mimari, hangi dosyada ne var) sorular → "
     "search_codebase(query='...') kullan\n"
+    "  - Tam/kesin bir metin, fonksiyon adı veya import arıyorsan (anlamsal değil, birebir eşleşme) → "
+    "grep_codebase(pattern='...') kullan\n"
     "KURAL 3: Araç sonucunu aynen kullan. ASLA araç sonucunu yok say veya uydurma!\n"
     "KURAL 4: YANIT YALNIZCA TÜRKÇE.\n\n"
     "Araç çağırma formatı (SADECE BU JSON, başka hiçbir şey yazma):\n"

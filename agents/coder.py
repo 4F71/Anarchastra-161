@@ -6,14 +6,22 @@ from tools.exec_ops import EXEC_TOOLS_SCHEMA, EXEC_TOOL_EXECUTOR
 from tools.git_ops import GIT_TOOLS_SCHEMA, GIT_TOOL_EXECUTOR
 from tools.rag_ops import RAG_TOOLS_SCHEMA, RAG_TOOL_EXECUTOR
 from tools.memory_ops import MEMORY_TOOLS_SCHEMA, MEMORY_TOOL_EXECUTOR
+from tools.grep_ops import GREP_TOOLS_SCHEMA, GREP_TOOL_EXECUTOR
 
-CODER_TOOLS_SCHEMA = FILE_TOOLS_SCHEMA + EXEC_TOOLS_SCHEMA + GIT_TOOLS_SCHEMA + RAG_TOOLS_SCHEMA + MEMORY_TOOLS_SCHEMA
-CODER_TOOL_EXECUTOR = {**TOOL_EXECUTOR, **EXEC_TOOL_EXECUTOR, **GIT_TOOL_EXECUTOR, **RAG_TOOL_EXECUTOR, **MEMORY_TOOL_EXECUTOR}
+CODER_TOOLS_SCHEMA = (
+    FILE_TOOLS_SCHEMA + EXEC_TOOLS_SCHEMA + GIT_TOOLS_SCHEMA + RAG_TOOLS_SCHEMA
+    + MEMORY_TOOLS_SCHEMA + GREP_TOOLS_SCHEMA
+)
+CODER_TOOL_EXECUTOR = {
+    **TOOL_EXECUTOR, **EXEC_TOOL_EXECUTOR, **GIT_TOOL_EXECUTOR, **RAG_TOOL_EXECUTOR,
+    **MEMORY_TOOL_EXECUTOR, **GREP_TOOL_EXECUTOR,
+}
 
 CODE_SYSTEM_PROMPT = (
     "Sen 'free' otonom kodlama ajanısın. Sadece konuşmakla kalmaz, EYLEM yaparsın! "
     "Mevcut araçlar: 'read_file', 'write_file', 'edit_file', 'list_workspace', 'run_python', "
-    "'git_diff', 'git_log', 'git_status', 'web_search', 'fetch_url', 'whois_lookup', 'search_codebase'.\n\n"
+    "'git_diff', 'git_log', 'git_status', 'web_search', 'fetch_url', 'whois_lookup', 'search_codebase', "
+    "'grep_codebase'.\n\n"
     "DİKKAT: ASLA 'Ben bir yapay zekaım, dosyalara veya internete erişemem' gibi bahaneler üretme! "
     "SENİN DOSYALARA VE İNTERNETE ERİŞİMİN VAR! "
     "Kullanıcı dosya okuma, tarama veya proje inceleme istiyorsa MUTLAKA ARAÇ KULLANMALISIN. "
@@ -41,7 +49,8 @@ DEBUG_SYSTEM_PROMPT = (
     "gercekten neye sebep oldugunu dogrula. Gerekirse edit_file (hedefli) veya write_file "
     "(tam yeniden yazim) ile duzeltilmis halini yazarsin. Bulgularini kisa ve net acikla.\n\n"
     "Mevcut araclar: 'read_file', 'write_file', 'edit_file', 'list_workspace', 'run_python', "
-    "'git_diff', 'git_log', 'git_status', 'web_search', 'fetch_url', 'whois_lookup', 'search_codebase'.\n"
+    "'git_diff', 'git_log', 'git_status', 'web_search', 'fetch_url', 'whois_lookup', 'search_codebase', "
+    "'grep_codebase'.\n"
     "Bir arac cagirmak icin SADECE asagidaki JSON formatini ciktinda bulundur, BASKA HICBIR SEY YAZMA:\n"
     "{\n"
     "  \"name\": \"list_workspace\",\n"
