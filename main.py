@@ -669,6 +669,13 @@ def log(lines: int, tool_calls_only: bool):
 
 
 @free.command()
+def doctor():
+    """Gercek VRAM/RAM kullanimini ve yuklu modelleri olcer (nvidia-smi + ollama ps)."""
+    from tools.system_ops import run_doctor
+    console.print(run_doctor())
+
+
+@free.command()
 def models():
     """Registry'deki modelleri ve Ollama'da cekilip cekilmedigini gosterir."""
     client = OllamaClient()
