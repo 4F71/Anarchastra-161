@@ -96,3 +96,33 @@ MEMORY_TOOL_EXECUTOR = {
     "remember_decision": remember,
     "recall_decisions": recall,
 }
+
+
+SUMMARY_SYSTEM_PROMPT = (
+    "Asagidaki konusma gecmisini, sonraki bir oturumda hatirlanmasi gereken "
+    "onemli karar/bulgu/kisitlama varsa TEK CUMLEYLE Turkce ozetle. Onemli bir "
+    "sey yoksa SADECE 'YOK' yaz. Baska hicbir sey yazma."
+)
+
+
+def summarize_and_remember(client, model: str, messages: list[dict], max_history: int = 20, path: str = MEMORY_PATH) -> str:
+    """Oturum kapanirken konusma gecmisinin ozetini cikarip otomatik remember eder.
+
+    Onemli bir sey bulunamazsa (model 'YOK' derse) hicbir sey kaydetmez ve "" dondurur.
+    """
+    exchanged = [m for m in messages if m.get("role") in ("user", "assistant") and m.get("content")]
+    if len(exchanged) < 2:
+        return ""
+
+    summary_messages = [{"role": "system", "content": SUMMARY_SYSTEM_PROMPT}] + exchanged[-max_history:]
+    try:
+        response = client.chat(model, summary_messages, options={"temperature": 0.2})
+        summary = response.get("message", {}).get("content", "").strip()
+    except Exception:
+        return ""
+
+    if not summary or summary.upper().startswith("YOK"):
+        return ""
+
+    remember(summary, tag="session-ozeti", path=path)
+    return summary

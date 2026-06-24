@@ -395,17 +395,24 @@ def shell(model: str, confirm_writes: bool, no_network: bool, ctx: int | None):
             return ""
         return "\n\nBu projede daha once alinan bazi kararlar:\n" + recent
 
+    def _auto_remember_session() -> None:
+        """Oturum kapanırken konuşma geçmişinin kısa bir özetini otomatik kaydeder."""
+        from tools.memory_ops import summarize_and_remember
+        summarize_and_remember(client, model, messages, max_history=MAX_HISTORY_MESSAGES)
+
     while True:
         try:
             prompt = session.prompt("❯ ", bottom_toolbar=bottom_toolbar, placeholder=placeholder)
         except (KeyboardInterrupt, EOFError):
+            _auto_remember_session()
             break
-            
+
         prompt = prompt.strip()
         if not prompt:
             continue
-            
+
         if prompt == "/exit":
+            _auto_remember_session()
             break
         elif prompt == "/clear":
             click.clear()
@@ -530,7 +537,7 @@ def shell(model: str, confirm_writes: bool, no_network: bool, ctx: int | None):
                 "/airgap (air-gapped mod ac/kapa), /remember <metin> (karar kaydet), "
                 "/memory [N] (kayitli kararlari listele), /audit [verify] (denetim izini goster/dogrula), "
                 "/model <isim> (manuel model degisimi), /ctx <n>|reset (num_ctx override), /look <soru>, "
-                "veya direkt yaz.[/]"
+                "veya direkt yaz. (Not: /exit veya cikiste oturumun ozeti varsa otomatik hafizaya kaydedilir)[/]"
             )
             continue
             
