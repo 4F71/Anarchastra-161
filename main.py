@@ -13,6 +13,7 @@ from agents.core import (
     MODEL_REGISTRY,
     MODEL_VRAM_ESTIMATES_GB,
     OllamaClient,
+    estimate_context_usage,
 )
 from agents.research import ResearchAgent
 from agents.reviewer import ReviewerAgent
@@ -376,10 +377,13 @@ def shell(model: str, confirm_writes: bool, no_network: bool, ctx: int | None):
         mode = " 🔍 ON" if agent_config.verbose else ""
         confirm_mode = " ⚠️ ON" if agent_config.confirm_writes else ""
         airgap_mode = " 🔒 ON" if agent_config.no_network else ""
+        _, ctx, pct = estimate_context_usage(messages, model)
+        ctx_color = "ansired" if pct >= 80 else ("ansiyellow" if pct >= 50 else "ansigreen")
         return HTML(
             f' <b>?</b> help  <b>/exit</b> quit  <b>/clear</b> clear  '
             f'<b>F2</b> thinking{mode}  <b>/confirm</b> writes{confirm_mode}  '
-            f'<b>/airgap</b> network{airgap_mode} '
+            f'<b>/airgap</b> network{airgap_mode}  '
+            f'<b>ctx</b> <{ctx_color}>%{pct}</{ctx_color}> ({ctx}) '
         )
 
     placeholder = HTML('<style fg="#5f5f5f">Bana ne yaptırmak istersin? · yardım için "?"</style>')

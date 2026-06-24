@@ -71,6 +71,22 @@ def _num_ctx_for(model_id: str) -> int:
     return info.get("max_ctx") or DEFAULT_NUM_CTX
 
 
+CHARS_PER_TOKEN_ESTIMATE = 4
+
+
+def estimate_context_usage(messages: list[dict], model_id: str) -> tuple[int, int, int]:
+    """Mesaj gecmisinin kaba token tahminini, num_ctx'i ve doluluk yuzdesini dondurur.
+
+    Tahmin basit bir karakter/4 yaklasimidir (gercek tokenizer'a erisim yok); kesin
+    deger degil, kullaniciyi kirpilmadan once uyarmak icin yeterli bir sinyal.
+    """
+    char_count = sum(len(m.get("content") or "") for m in messages)
+    estimated_tokens = char_count // CHARS_PER_TOKEN_ESTIMATE
+    ctx = _num_ctx_for(model_id)
+    pct = min(100, round(100 * estimated_tokens / ctx)) if ctx else 0
+    return estimated_tokens, ctx, pct
+
+
 class OllamaClient:
     def __init__(self, host: str | None = None):
         self.host = host or OLLAMA_HOST
