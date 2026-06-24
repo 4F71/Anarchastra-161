@@ -1,7 +1,7 @@
 import os
 
 from tools.file_ops import WORKSPACE_ROOT, write_file
-from tools.rollback_ops import rollback, rollback_history
+from tools.rollback_ops import ROLLBACK_TOOL_EXECUTOR, rollback, rollback_history
 
 
 def test_rollback_restores_previous_content():
@@ -20,6 +20,11 @@ def test_rollback_deletes_newly_created_file():
     result = rollback(1)
     assert "silindi" in result
     assert not os.path.isfile(target)
+
+
+def test_rollback_tool_executor_exposes_only_history_not_rollback_itself():
+    assert ROLLBACK_TOOL_EXECUTOR["rollback_history"] is rollback_history
+    assert "rollback" not in ROLLBACK_TOOL_EXECUTOR
 
 
 def test_rollback_multiple_steps_in_sequence():

@@ -1,7 +1,14 @@
 import json
 import os
 
-from tools.audit_ops import AUDIT_DIR, GENESIS_HASH, append_event, audit_tail, verify_chain
+from tools.audit_ops import (
+    AUDIT_DIR,
+    AUDIT_TOOL_EXECUTOR,
+    GENESIS_HASH,
+    append_event,
+    audit_tail,
+    verify_chain,
+)
 
 TEST_PATH = os.path.join(AUDIT_DIR, "test_audit.jsonl")
 
@@ -59,3 +66,9 @@ def test_audit_tail_lists_recent_entries():
     tail = audit_tail(5, path=TEST_PATH)
     assert "search_codebase" in tail
     _cleanup()
+
+
+def test_audit_tool_executor_exposes_only_read_only_functions():
+    assert AUDIT_TOOL_EXECUTOR["audit_tail"] is audit_tail
+    assert AUDIT_TOOL_EXECUTOR["verify_audit_chain"] is verify_chain
+    assert "append_event" not in AUDIT_TOOL_EXECUTOR

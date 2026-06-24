@@ -78,3 +78,31 @@ def audit_tail(n: int = 10, path: str = AUDIT_PATH) -> str:
     for entry in reversed(entries[-n:]):
         lines.append(f"[{entry['ts']}] #{entry['seq']} {entry['event']} {json.dumps(entry['data'], ensure_ascii=False)}")
     return "\n".join(lines)
+
+
+# Agent'lara sadece salt-okunur sorgu acilir (zincir dogrulama + son N kayit listeleme);
+# zincire yazma (append_event) insan/sistem tarafindan tetiklenen olaylara ozel kalir.
+AUDIT_TOOLS_SCHEMA = [
+    {
+        "type": "function",
+        "function": {
+            "name": "audit_tail",
+            "description": "Denetim izinin (audit trail) son N kaydini en yeniden eskiye listeler.",
+            "parameters": {
+                "type": "object",
+                "properties": {"n": {"type": "integer", "description": "Gosterilecek kayit sayisi (varsayilan 10)."}},
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "verify_audit_chain",
+            "description": "Denetim izi hash zincirinin bozulup bozulmadigini dogrular.",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+]
+
+AUDIT_TOOL_EXECUTOR = {"audit_tail": audit_tail, "verify_audit_chain": verify_chain}

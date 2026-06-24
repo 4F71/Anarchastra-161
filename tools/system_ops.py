@@ -76,3 +76,21 @@ def run_doctor() -> str:
         get_loaded_models(),
     ]
     return "\n".join(sections)
+
+
+SYSTEM_TOOLS_SCHEMA = [
+    {
+        "type": "function",
+        "function": {
+            "name": "check_system_resources",
+            "description": (
+                "Gercek GPU VRAM kullanimi, sistem RAM kullanimi ve Ollama'da su an "
+                "yuklu olan modelleri raporlar. Bir model yuklemeden/degistirmeden once "
+                "VRAM/RAM doluluk durumunu kontrol etmek icin kullan."
+            ),
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    }
+]
+
+SYSTEM_TOOL_EXECUTOR = {"check_system_resources": run_doctor}

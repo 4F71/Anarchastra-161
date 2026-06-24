@@ -1,7 +1,9 @@
 """Rollback journal for write_file/edit_file — undo recent workspace writes.
 
-Not exposed to agents as a tool: rollback is a human-only safety net,
-triggered via the `/rollback` shell command or `free rollback` CLI command.
+rollback() itself stays human-only (triggered via `/rollback` shell command or
+`free rollback` CLI command) — undoing a write is destructive enough that it
+should not be agent-callable. rollback_history() is read-only and is exposed
+to agents via ROLLBACK_TOOLS_SCHEMA so they can check their own recent edits.
 """
 
 import json
@@ -107,3 +109,24 @@ def rollback_history(n: int = 10) -> str:
         action = "yazildi/duzenlendi" if entry["existed_before"] else "yeni olusturuldu"
         lines.append(f"[{entry['ts']}] {entry['path']} ({action})")
     return "\n".join(lines)
+
+
+ROLLBACK_TOOLS_SCHEMA = [
+    {
+        "type": "function",
+        "function": {
+            "name": "rollback_history",
+            "description": (
+                "workspace/ icindeki son N write_file/edit_file isleminin gecmisini listeler "
+                "(geri almaz, sadece gosterir)."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {"n": {"type": "integer", "description": "Gosterilecek kayit sayisi (varsayilan 10)."}},
+                "required": [],
+            },
+        },
+    }
+]
+
+ROLLBACK_TOOL_EXECUTOR = {"rollback_history": rollback_history}

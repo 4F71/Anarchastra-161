@@ -1,6 +1,12 @@
 from unittest.mock import MagicMock, patch
 
-from tools.system_ops import get_gpu_status, get_loaded_models, get_ram_status, run_doctor
+from tools.system_ops import (
+    SYSTEM_TOOL_EXECUTOR,
+    get_gpu_status,
+    get_loaded_models,
+    get_ram_status,
+    run_doctor,
+)
 
 
 def test_get_gpu_status_reports_missing_nvidia_smi():
@@ -51,3 +57,7 @@ def test_run_doctor_includes_all_sections():
     assert "gpu-ok" in result
     assert "ram-ok" in result
     assert "models-ok" in result
+
+
+def test_system_tool_executor_exposes_run_doctor_as_check_system_resources():
+    assert SYSTEM_TOOL_EXECUTOR["check_system_resources"] is run_doctor
