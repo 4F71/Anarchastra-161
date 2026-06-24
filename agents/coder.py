@@ -66,6 +66,43 @@ DEBUG_SYSTEM_PROMPT = (
 )
 
 
+SOCRATIC_SYSTEM_PROMPT = (
+    "Sen 'free explain --socratic' ajanisin. Kullanici kodu EZBERLEMEK degil, "
+    "PARCALAYARAK kendi cikarimiyla OGRENMEK istiyor. Bu yuzden cevabi asla direkt "
+    "vermezsin.\n\n"
+    "YONTEM:\n"
+    "1. Once read_file/list_workspace/grep_codebase/search_codebase ile istenen kodu oku ve analiz et "
+    "(bu adimda istedigin kadar arac cagirabilirsin).\n"
+    "2. Analiz bittiginde, kullaniciya kodun en onemli/en az aciklayici tasarim kararini "
+    "hedef alan TEK bir rehber soru sor (orn. 'bu fonksiyon neden bir generator, "
+    "ne kazandiriyor?', 'bu satir olmasa ne bozulur?'). SADECE soruyu yaz, baska aciklama, "
+    "ozet veya cevap YAZMA.\n"
+    "3. Kullanici cevap verdiginde: cevap dogruysa kisaca onayla ve bir adim daha derine inen "
+    "yeni bir soru sor; cevap yanlissa/yetersizse duzeltme SOYLEMEDEN, kullaniciyi dogru yone "
+    "iten ek bir ipucu sorusu sor.\n"
+    "4. Kullanici acikca 'anlat'/'cevabi ver'/'pas gecelim' derse, o zaman direkt ve net acikla.\n\n"
+    "Mevcut araclar: 'read_file', 'list_workspace', 'grep_codebase', 'search_codebase'.\n"
+    "Bir arac cagirmak icin SADECE asagidaki JSON formatini ciktinda bulundur, BASKA HICBIR SEY YAZMA:\n"
+    "{\n"
+    "  \"name\": \"read_file\",\n"
+    "  \"arguments\": {\"path\": \"...\"}\n"
+    "}\n\n"
+    "YANITLARINI KESINLIKLE VE SADECE TURKCE DILINDE VERECEKSIN."
+)
+
+# Sokratik mod kasitli olarak salt-okunur: write_file/edit_file/run_python/web araclari
+# yok, kullanici kodu kendi cikarimiyla incelesin diye sadece okuma+arama araclari verilir.
+_SOCRATIC_TOOL_NAMES = {"read_file", "list_workspace", "grep_codebase", "search_codebase"}
+SOCRATIC_TOOLS_SCHEMA = [
+    t for t in (FILE_TOOLS_SCHEMA + RAG_TOOLS_SCHEMA + GREP_TOOLS_SCHEMA)
+    if t["function"]["name"] in _SOCRATIC_TOOL_NAMES
+]
+SOCRATIC_TOOL_EXECUTOR = {
+    name: fn for name, fn in {**TOOL_EXECUTOR, **RAG_TOOL_EXECUTOR, **GREP_TOOL_EXECUTOR}.items()
+    if name in _SOCRATIC_TOOL_NAMES
+}
+
+
 class CoderAgent:
     def __init__(self, model: str = DEFAULT_CODER_MODEL, client: OllamaClient | None = None):
         self.model = model
@@ -73,7 +110,16 @@ class CoderAgent:
         self.manager = ModelManager(self.client)
 
     def run(self, prompt: str, mode: str = "code") -> str:
-        system_prompt = DEBUG_SYSTEM_PROMPT if mode == "debug" else CODE_SYSTEM_PROMPT
+        if mode == "socratic":
+            system_prompt = SOCRATIC_SYSTEM_PROMPT
+            tools_schema, tool_executor = SOCRATIC_TOOLS_SCHEMA, SOCRATIC_TOOL_EXECUTOR
+        elif mode == "debug":
+            system_prompt = DEBUG_SYSTEM_PROMPT
+            tools_schema, tool_executor = CODER_TOOLS_SCHEMA, CODER_TOOL_EXECUTOR
+        else:
+            system_prompt = CODE_SYSTEM_PROMPT
+            tools_schema, tool_executor = CODER_TOOLS_SCHEMA, CODER_TOOL_EXECUTOR
+
         self.manager.ensure_loaded(self.model)
         messages = [
             {"role": "system", "content": system_prompt},
@@ -83,6 +129,6 @@ class CoderAgent:
             self.client,
             self.model,
             messages,
-            tools_schema=CODER_TOOLS_SCHEMA,
-            tool_executor=CODER_TOOL_EXECUTOR,
+            tools_schema=tools_schema,
+            tool_executor=tool_executor,
         )

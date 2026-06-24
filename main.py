@@ -151,6 +151,28 @@ def debug(prompt: str, model: str, confirm_writes: bool, no_network: bool, ctx: 
 
 @free.command()
 @click.argument("prompt")
+@click.option("--model", default=DEFAULT_CODER_MODEL, show_default=True)
+@click.option("--no-network", is_flag=True, help="Air-gapped mod: web araclarini kapat, sadece localhost'a izin ver.")
+@click.option("--ctx", type=int, default=None, help="Ollama num_ctx override (varsayilan: model registry/DEFAULT_NUM_CTX).")
+def explain(prompt: str, model: str, no_network: bool, ctx: int | None):
+    """Kodu dogrudan aciklamak yerine, kullaniciyi rehber sorularla kendi cikarimina yonlendirir.
+
+    Ornek: free explain "agents/core.py'daki run_agent_loop'u inceleyelim"
+    Tek-seferlik CLI komutu oldugu icin gercek diyalog icin 'free shell' icinde
+    '/model' ile coder modelini sabitleyip mode='socratic' ile devam etmek daha uygundur;
+    bu komut Sokratik modun ilk soru turunu baslatir.
+    """
+    agent_config.no_network = no_network
+    agent_config.ctx_override = ctx
+    agent = CoderAgent(model=model)
+    try:
+        print_result(agent.run(prompt, mode="socratic"))
+    except KeyboardInterrupt:
+        click.echo("\n[free] durduruldu.")
+
+
+@free.command()
+@click.argument("prompt")
 @click.option("--model", default=DEFAULT_RESEARCH_MODEL, show_default=True)
 @click.option("--confirm-writes", is_flag=True, help="write_file/edit_file calistirilmadan once onay sor.")
 @click.option("--no-network", is_flag=True, help="Air-gapped mod: web araclarini kapat, sadece localhost'a izin ver.")
@@ -249,7 +271,14 @@ def vision(image_path: str, prompt: str, model: str):
 
 from agents.core import ModelManager
 from tools.file_ops import FILE_TOOLS_SCHEMA, TOOL_EXECUTOR, WORKSPACE_ROOT, read_image_b64
-from agents.coder import CODE_SYSTEM_PROMPT, CODER_TOOLS_SCHEMA, CODER_TOOL_EXECUTOR
+from agents.coder import (
+    CODE_SYSTEM_PROMPT,
+    CODER_TOOLS_SCHEMA,
+    CODER_TOOL_EXECUTOR,
+    SOCRATIC_SYSTEM_PROMPT,
+    SOCRATIC_TOOLS_SCHEMA,
+    SOCRATIC_TOOL_EXECUTOR,
+)
 from agents.research import RESEARCH_SYSTEM_PROMPT, RESEARCH_TOOLS_SCHEMA, RESEARCH_TOOL_EXECUTOR
 from agents.vision import VISION_SYSTEM_PROMPT
 from agents.core import run_agent_loop
@@ -391,6 +420,7 @@ def shell(model: str, confirm_writes: bool, no_network: bool, ctx: int | None):
     session = PromptSession(key_bindings=kb, history=FileHistory(HISTORY_PATH))
     print_splash()
     pinned_model = None
+    socratic_mode = False
 
     def _memory_context() -> str:
         from tools.memory_ops import recall
@@ -426,6 +456,11 @@ def shell(model: str, confirm_writes: bool, no_network: bool, ctx: int | None):
             state = agent_config.toggle_verbose()
             label = "AÇIK ✅" if state else "KAPALI ❌"
             console.print(f"[dim]🔍 Thinking log: {label}[/]")
+            continue
+        elif prompt == "/socratic":
+            socratic_mode = not socratic_mode
+            label = "AÇIK ✅ (sorular ile rehberlik)" if socratic_mode else "KAPALI ❌ (doğrudan kod modu)"
+            console.print(f"[dim]🤔 Sokratik mod: {label}[/]")
             continue
         elif prompt == "/confirm":
             state = agent_config.toggle_confirm_writes()
@@ -536,6 +571,7 @@ def shell(model: str, confirm_writes: bool, no_network: bool, ctx: int | None):
         elif prompt == "?":
             console.print(
                 "[dim]Komutlar: /exit, /clear, /verbose (thinking log), /confirm (yazma onayi), "
+                "/socratic (Sokratik ogrenme modu ac/kapa - kod aciklamak yerine rehber sorular sorar), "
                 "/save (oturumu kaydet), /index [yollar] (kod tabanini indexle), "
                 "/rollback [N|list] (son N write_file/edit_file islemini geri al), "
                 "/airgap (air-gapped mod ac/kapa), /remember <metin> (karar kaydet), "
@@ -601,6 +637,9 @@ def shell(model: str, confirm_writes: bool, no_network: bool, ctx: int | None):
         elif model == DEFAULT_VISION_MODEL and not pinned_model:
             messages[0] = {"role": "system", "content": VISION_SYSTEM_PROMPT}
             tools_schema, tool_executor = FILE_TOOLS_SCHEMA, TOOL_EXECUTOR
+        elif socratic_mode:
+            messages[0] = {"role": "system", "content": SOCRATIC_SYSTEM_PROMPT}
+            tools_schema, tool_executor = SOCRATIC_TOOLS_SCHEMA, SOCRATIC_TOOL_EXECUTOR
         else:
             messages[0] = {"role": "system", "content": CODE_SYSTEM_PROMPT}
             tools_schema, tool_executor = CODER_TOOLS_SCHEMA, CODER_TOOL_EXECUTOR
