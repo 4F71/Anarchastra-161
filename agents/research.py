@@ -6,6 +6,9 @@ from tools.rag_ops import RAG_TOOLS_SCHEMA, RAG_TOOL_EXECUTOR
 from tools.memory_ops import MEMORY_TOOLS_SCHEMA, MEMORY_TOOL_EXECUTOR
 from tools.grep_ops import GREP_TOOLS_SCHEMA, GREP_TOOL_EXECUTOR
 
+# FILE_TOOLS_SCHEMA/TOOL_EXECUTOR zaten WEB_TOOLS_SCHEMA/WEB_TOOL_EXECUTOR'i icerir
+# (bkz. tools/file_ops.py altindaki birlestirme) - whois_lookup/web_search/fetch_url
+# burada ayrica eklemeye gerek yok, RESEARCH_SYSTEM_PROMPT'taki referanslari karsiliyor.
 RESEARCH_TOOLS_SCHEMA = FILE_TOOLS_SCHEMA + RAG_TOOLS_SCHEMA + MEMORY_TOOLS_SCHEMA + GREP_TOOLS_SCHEMA
 RESEARCH_TOOL_EXECUTOR = {**TOOL_EXECUTOR, **RAG_TOOL_EXECUTOR, **MEMORY_TOOL_EXECUTOR, **GREP_TOOL_EXECUTOR}
 
