@@ -10,6 +10,10 @@ import requests
 import agents.config as config
 import tools.network_guard  # noqa: F401 — Session.request/httpx.Client.send guard'ini kurar
 from tools.audit_ops import append_event
+from tools.perf_ops import log_turn
+
+# Son tur token/s — shell toolbar'inin okudugu paylaşılan durum
+last_tokens_per_sec: float = 0.0
 
 LOG_DIR = os.path.join(os.path.dirname(__file__), "..", "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
@@ -272,7 +276,14 @@ def run_agent_loop(
                 response = client.chat(model, history, options=options)
         
         elapsed = time.time() - t0
-        
+
+        eval_count = response.get("eval_count", 0)
+        eval_duration_ns = response.get("eval_duration", 0)
+        if eval_count and eval_duration_ns:
+            log_turn(model, eval_count, eval_duration_ns)
+            global last_tokens_per_sec
+            last_tokens_per_sec = round(eval_count / (eval_duration_ns / 1e9), 1)
+
         message = response.get("message", {})
         
         tool_calls = message.get("tool_calls")

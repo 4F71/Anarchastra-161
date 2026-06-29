@@ -22,7 +22,7 @@ REVIEWER_SYSTEM_PROMPT = (
     "kullanicinin acikca istedigi duzeltmeleri uygularken kullan (kucuk degisiklik icin "
     "edit_file'i tercih et).\n\n"
     "Mevcut araclar: 'read_file', 'write_file', 'edit_file', 'list_workspace', 'run_python', "
-    "'git_diff', 'git_log', 'git_status', 'web_search', 'fetch_url', 'whois_lookup', 'run_ruff', 'run_mypy', "
+    "'git_diff', 'git_diff_staged', 'git_log', 'git_status', 'web_search', 'fetch_url', 'whois_lookup', 'run_ruff', 'run_mypy', "
     "'run_pytest', 'search_codebase', 'check_system_resources', 'audit_tail', 'verify_audit_chain', "
     "'rollback_history'.\n"
     "Bir arac cagirmak icin SADECE asagidaki JSON formatini ciktinda bulundur, BASKA HICBIR SEY YAZMA:\n"

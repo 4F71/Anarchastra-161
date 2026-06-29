@@ -30,6 +30,14 @@ def git_diff(path: str = "") -> str:
     return _run_git(args)
 
 
+def git_diff_staged(path: str = "") -> str:
+    """Shows staged (git add edilmis) degisiklikleri gosterir."""
+    args = ["diff", "--cached"]
+    if path:
+        args += ["--", path]
+    return _run_git(args)
+
+
 def git_log(path: str = "", max_count: int = 10) -> str:
     """Shows recent commit history, optionally scoped to one path."""
     capped = max(1, min(max_count, 50))
@@ -86,6 +94,23 @@ GIT_TOOLS_SCHEMA = [
     {
         "type": "function",
         "function": {
+            "name": "git_diff_staged",
+            "description": "Show staged (git add edilmis) changes only (read-only). Use for pre-commit review.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Optional path to scope the diff to.",
+                    },
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "git_status",
             "description": "Show staged/unstaged/untracked file state (read-only, short format). Use to see which files changed without showing the full diff.",
             "parameters": {
@@ -99,6 +124,7 @@ GIT_TOOLS_SCHEMA = [
 
 GIT_TOOL_EXECUTOR = {
     "git_diff": git_diff,
+    "git_diff_staged": git_diff_staged,
     "git_log": git_log,
     "git_status": git_status,
 }

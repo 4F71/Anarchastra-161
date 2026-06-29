@@ -189,20 +189,79 @@ def research(prompt: str, model: str, confirm_writes: bool, no_network: bool, ct
 
 
 @free.command()
-@click.argument("prompt")
+@click.argument("prompt", default="")
 @click.option("--model", default=DEFAULT_CODER_MODEL, show_default=True)
 @click.option("--confirm-writes", is_flag=True, help="write_file/edit_file calistirilmadan once onay sor.")
 @click.option("--no-network", is_flag=True, help="Air-gapped mod: web araclarini kapat, sadece localhost'a izin ver.")
 @click.option("--ctx", type=int, default=None, help="Ollama num_ctx override (varsayilan: model registry/DEFAULT_NUM_CTX).")
-def review(prompt: str, model: str, confirm_writes: bool, no_network: bool, ctx: int | None):
+@click.option("--staged", is_flag=True, help="Sadece git add edilmis (staged) degisiklikleri incele.")
+def review(prompt: str, model: str, confirm_writes: bool, no_network: bool, ctx: int | None, staged: bool):
     agent_config.confirm_writes = confirm_writes
     agent_config.no_network = no_network
     agent_config.ctx_override = ctx
+    if staged:
+        from tools.git_ops import git_diff_staged
+        diff = git_diff_staged()
+        staged_prompt = (
+            f"Asagidaki staged (git add edilmis) degisiklikleri incele ve kod kalitesi, "
+            f"guvenlik ve mantik acisindan yorumla:\n\n```diff\n{diff}\n```"
+        )
+        if prompt:
+            staged_prompt += f"\n\nEk bağlam: {prompt}"
+        prompt = staged_prompt
+    elif not prompt:
+        prompt = "Proje kodunu incele."
     agent = ReviewerAgent(model=model)
     try:
         print_result(agent.run(prompt))
     except KeyboardInterrupt:
         click.echo("\n[free] durduruldu.")
+
+
+@free.command()
+@click.argument("prompt")
+@click.option("--model", default=DEFAULT_CODER_MODEL, show_default=True)
+@click.option("--no-network", is_flag=True, help="Air-gapped mod: web araclarini kapat, sadece localhost'a izin ver.")
+@click.option("--ctx", type=int, default=None)
+def council(prompt: str, model: str, no_network: bool, ctx: int | None):
+    """Coder onerisi → Reviewer elestirisi → Coder son hali: 3-tur tartisma zinciri."""
+    agent_config.no_network = no_network
+    agent_config.ctx_override = ctx
+
+    coder = CoderAgent(model=model)
+    reviewer = ReviewerAgent(model=model)
+
+    console.print("[bold cyan]🧠 Tur 1/3 — Coder öneri üretiyor...[/]")
+    try:
+        proposal = coder.run(f"Asagidaki gorev icin bir cozum oner:\n\n{prompt}", mode="code")
+    except KeyboardInterrupt:
+        click.echo("\n[free] durduruldu.")
+        return
+
+    console.print("[bold cyan]🔍 Tur 2/3 — Reviewer elestiriyor...[/]")
+    try:
+        critique = reviewer.run(
+            f"Asagidaki kodu/oneriyi incele ve somut elestiri yaz. "
+            f"Asil gorev: {prompt}\n\nOneri:\n{proposal}"
+        )
+    except KeyboardInterrupt:
+        click.echo("\n[free] durduruldu.")
+        return
+
+    console.print("[bold cyan]✅ Tur 3/3 — Coder son versiyonu yazıyor...[/]")
+    try:
+        final = coder.run(
+            f"Asil gorev: {prompt}\n\n"
+            f"Ilk onerin:\n{proposal}\n\n"
+            f"Reviewer elestirisi:\n{critique}\n\n"
+            f"Elestiriyi dikkate alarak son ve temiz versiyonu yaz.",
+            mode="code",
+        )
+    except KeyboardInterrupt:
+        click.echo("\n[free] durduruldu.")
+        return
+
+    print_result(final)
 
 
 @free.command()
@@ -269,6 +328,7 @@ def vision(image_path: str, prompt: str, model: str):
         click.echo("\n[free] durduruldu.")
 
 
+import agents.core as _core_module
 from agents.core import ModelManager
 from tools.file_ops import FILE_TOOLS_SCHEMA, TOOL_EXECUTOR, WORKSPACE_ROOT, read_image_b64
 from agents.coder import (
@@ -408,11 +468,13 @@ def shell(model: str, confirm_writes: bool, no_network: bool, ctx: int | None):
         airgap_mode = " 🔒 ON" if agent_config.no_network else ""
         _, ctx, pct = estimate_context_usage(messages, model)
         ctx_color = "ansired" if pct >= 80 else ("ansiyellow" if pct >= 50 else "ansigreen")
+        tps = _core_module.last_tokens_per_sec
+        tps_str = f"  <b>tok/s</b> {tps:.1f}" if tps else ""
         return HTML(
             f' <b>?</b> help  <b>/exit</b> quit  <b>/clear</b> clear  '
             f'<b>F2</b> thinking{mode}  <b>/confirm</b> writes{confirm_mode}  '
             f'<b>/airgap</b> network{airgap_mode}  '
-            f'<b>ctx</b> <{ctx_color}>%{pct}</{ctx_color}> ({ctx}) '
+            f'<b>ctx</b> <{ctx_color}>%{pct}</{ctx_color}> ({ctx}){tps_str} '
         )
 
     placeholder = HTML('<style fg="#5f5f5f">Bana ne yaptırmak istersin? · yardım için "?"</style>')
@@ -708,10 +770,31 @@ def log(lines: int, tool_calls_only: bool):
 
 
 @free.command()
+@click.argument("name")
+@click.option(
+    "--type", "template_type", default="generic", show_default=True,
+    type=click.Choice(["generic", "torch-experiment", "research"]),
+    help="Sablon tipi.",
+)
+def scaffold(name: str, template_type: str):
+    """workspace/<name>/ altinda proje iskelet dosyalari olusturur."""
+    from tools.scaffold_ops import scaffold as do_scaffold
+    console.print(do_scaffold(name, template_type))
+
+
+@free.command()
 def doctor():
     """Gercek VRAM/RAM kullanimini ve yuklu modelleri olcer (nvidia-smi + ollama ps)."""
     from tools.system_ops import run_doctor
     console.print(run_doctor())
+
+
+@free.command()
+@click.option("--model", default="", help="Belirli bir modeli filtrele (kismi isim yeterli).")
+def stats(model: str):
+    """Model bazli token/s performans ozetini gosterir."""
+    from tools.perf_ops import perf_stats
+    console.print(perf_stats(model))
 
 
 @free.command()
