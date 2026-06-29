@@ -38,9 +38,9 @@ def git_diff_staged(path: str = "") -> str:
     return _run_git(args)
 
 
-def git_log(path: str = "", max_count: int = 10) -> str:
+def git_log(path: str = "", n: int = 10) -> str:
     """Shows recent commit history, optionally scoped to one path."""
-    capped = max(1, min(max_count, 50))
+    capped = max(1, min(n, 50))
     args = ["log", f"-{capped}", "--oneline"]
     if path:
         args += ["--", path]
@@ -82,7 +82,7 @@ GIT_TOOLS_SCHEMA = [
                         "type": "string",
                         "description": "Optional path (relative to project root) to scope the log to.",
                     },
-                    "max_count": {
+                    "n": {
                         "type": "integer",
                         "description": "Max number of commits to show (default 10, capped at 50).",
                     },

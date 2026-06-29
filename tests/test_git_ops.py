@@ -27,7 +27,7 @@ def test_git_diff_scopes_to_path():
 
 def test_git_log_caps_max_count():
     with patch("tools.git_ops.subprocess.run", return_value=_fake_completed("abc123 commit")) as run:
-        git_log(max_count=999)
+        git_log(n=999)
     args = run.call_args[0][0]
     assert args == ["git", "log", "-50", "--oneline"]
 
