@@ -340,6 +340,7 @@ from agents.coder import (
     SOCRATIC_TOOL_EXECUTOR,
 )
 from agents.research import RESEARCH_SYSTEM_PROMPT, RESEARCH_TOOLS_SCHEMA, RESEARCH_TOOL_EXECUTOR
+from tools.git_ops import GIT_TOOLS_SCHEMA, GIT_TOOL_EXECUTOR
 from agents.vision import VISION_SYSTEM_PROMPT
 from agents.core import run_agent_loop
 import json
@@ -354,6 +355,7 @@ CODEBASE_SYSTEM_PROMPT = (
     "ilgili dosyayı read_file(path='...') ile tam olarak oku.\n"
     "KURAL 3: whois_lookup/web_search/fetch_url bu görev için KULLANILMAZ — soru bu projenin kendi "
     "kaynak koduyla ilgili, dış dünyayla değil.\n"
+    "KURAL 3b: Commit geçmişi veya son değişiklikler sorulduğunda git_log/git_diff/git_status araçlarını kullan.\n"
     "KURAL 4: Araç sonucunu aynen kullan, uydurma. Dosya yolunu ve fonksiyon/sınıf adlarını tam ver.\n"
     "KURAL 5: YANIT YALNIZCA TÜRKÇE.\n\n"
     "Araç çağırma formatı (SADECE BU JSON, başka hiçbir şey yazma):\n"
@@ -692,7 +694,8 @@ def shell(model: str, confirm_writes: bool, no_network: bool, ctx: int | None):
         # Swap system prompt + tool set based on current model
         if model == DEFAULT_CODEBASE_MODEL and not pinned_model:
             messages[0] = {"role": "system", "content": CODEBASE_SYSTEM_PROMPT}
-            tools_schema, tool_executor = RESEARCH_TOOLS_SCHEMA, RESEARCH_TOOL_EXECUTOR
+            tools_schema = RESEARCH_TOOLS_SCHEMA + GIT_TOOLS_SCHEMA
+            tool_executor = {**RESEARCH_TOOL_EXECUTOR, **GIT_TOOL_EXECUTOR}
         elif model == DEFAULT_RESEARCH_MODEL and not pinned_model:
             messages[0] = {"role": "system", "content": RESEARCH_SYSTEM_PROMPT}
             tools_schema, tool_executor = FILE_TOOLS_SCHEMA, TOOL_EXECUTOR
