@@ -366,6 +366,41 @@ CODEBASE_SYSTEM_PROMPT = (
     "}\n"
 )
 
+_RESEARCH_KEYWORDS = {
+    "araştır", "nedir", "ne demek", "açıkla", "anlat", "tarih", "fizik",
+    "matematik", "wikipedia", "haber", "güncel", "dünya", "http", "https",
+    "web", "internet", "arama",
+}
+_CODE_KEYWORDS = {
+    "yaz", "oluştur", "ekle", "düzelt", "fix", "implement", "refactor",
+    "sil", "taşı", "rename", "test", "debug", "hata", "bug", "çalıştır",
+    "kodu", "fonksiyon", "class", "dosya", "script",
+}
+_CODEBASE_KEYWORDS = {
+    "nerede", "nasıl çalış", "ne yapıyor", "incele", "açıkla bu", "commit",
+    "mimari", "yapı", "bu proje", "bu repo", "stirner", "agent", "araç",
+    "neden böyle", "nasıl implement",
+}
+
+
+def _keyword_route(prompt: str) -> str | None:
+    """Belirsiz olmayan promptlari LLM'e gonderme, dogrudan siniflandir."""
+    lower = prompt.lower()
+    code_score = sum(1 for kw in _CODE_KEYWORDS if kw in lower)
+    research_score = sum(1 for kw in _RESEARCH_KEYWORDS if kw in lower)
+    codebase_score = sum(1 for kw in _CODEBASE_KEYWORDS if kw in lower)
+    top = max(code_score, research_score, codebase_score)
+    if top == 0:
+        return None  # belirsiz, LLM'e gonder
+    if code_score == top and code_score > research_score and code_score > codebase_score:
+        return "code"
+    if research_score == top and research_score > code_score and research_score > codebase_score:
+        return "research"
+    if codebase_score == top and codebase_score > code_score and codebase_score > research_score:
+        return "codebase"
+    return None  # esit skor, LLM'e gonder
+
+
 def route_prompt(client: OllamaClient, current_model: str, user_prompt: str) -> str:
     sys_msg = (
         "You are a strict intent classifier. Return ONLY a valid JSON object with a single key 'intent', "
@@ -588,6 +623,46 @@ def shell(model: str, confirm_writes: bool, no_network: bool, ctx: int | None):
             else:
                 console.print(f"[dim]{audit_tail()}[/]")
             continue
+        elif prompt.startswith("/load"):
+            arg = prompt[len("/load"):].strip()
+            if not arg:
+                # workspace'teki session dosyalarini listele
+                import glob as _glob
+                sessions = sorted(_glob.glob(os.path.join(WORKSPACE_ROOT, "session_*.md")))
+                if not sessions:
+                    console.print("[dim]Kayıtlı session bulunamadı. Önce /save ile kaydedin.[/]")
+                else:
+                    console.print("[dim]Kayıtlı sessionlar:[/]")
+                    for s in sessions:
+                        console.print(f"[dim]  {os.path.basename(s)}[/]")
+            else:
+                load_path = os.path.join(WORKSPACE_ROOT, arg) if not os.path.isabs(arg) else arg
+                if not os.path.exists(load_path):
+                    console.print(f"[dim]Dosya bulunamadı: {arg}[/]")
+                else:
+                    with open(load_path, "r", encoding="utf-8") as _sf:
+                        raw = _sf.read()
+                    loaded_msgs = []
+                    current_role = None
+                    current_lines: list[str] = []
+                    for line in raw.splitlines():
+                        if line.startswith("### user"):
+                            if current_role and current_lines:
+                                loaded_msgs.append({"role": current_role, "content": "\n".join(current_lines).strip()})
+                            current_role = "user"
+                            current_lines = []
+                        elif line.startswith("### assistant"):
+                            if current_role and current_lines:
+                                loaded_msgs.append({"role": current_role, "content": "\n".join(current_lines).strip()})
+                            current_role = "assistant"
+                            current_lines = []
+                        elif current_role:
+                            current_lines.append(line)
+                    if current_role and current_lines:
+                        loaded_msgs.append({"role": current_role, "content": "\n".join(current_lines).strip()})
+                    messages[1:] = loaded_msgs
+                    console.print(f"[dim]📂 Session yüklendi: {arg} ({len(loaded_msgs)} mesaj)[/]")
+            continue
         elif prompt == "/save":
             import datetime
             ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -611,6 +686,53 @@ def shell(model: str, confirm_writes: bool, no_network: bool, ctx: int | None):
             else:
                 steps = int(arg) if arg.isdigit() else 1
                 console.print(f"[dim]↩️  {do_rollback(steps)}[/]")
+            continue
+        elif prompt == "/doctor":
+            from tools.system_ops import run_doctor
+            console.print(run_doctor())
+            continue
+        elif prompt.startswith("/stats"):
+            from tools.perf_ops import perf_stats
+            arg = prompt[len("/stats"):].strip()
+            console.print(perf_stats(arg))
+            continue
+        elif prompt == "/status":
+            try:
+                loaded = client.list_loaded()
+                if not loaded:
+                    console.print("[dim]Yüklü model yok.[/]")
+                else:
+                    for entry in loaded:
+                        name = entry.get("name") or entry.get("model") or "?"
+                        console.print(f"[dim]🔄 {name}[/]")
+            except Exception as e:
+                console.print(f"[dim]Ollama'ya ulaşılamadı: {e}[/]")
+            continue
+        elif prompt.startswith("/log"):
+            from agents.core import LOG_PATH
+            arg = prompt[len("/log"):].strip()
+            lines_n = int(arg) if arg.isdigit() else 20
+            if not os.path.exists(LOG_PATH):
+                console.print("[dim]Henüz log yok.[/]")
+            else:
+                with open(LOG_PATH, "r", encoding="utf-8") as _lf:
+                    _lines = _lf.readlines()
+                for _l in _lines[-lines_n:]:
+                    console.print(f"[dim]{_l.rstrip()}[/]")
+            continue
+        elif prompt == "/models":
+            try:
+                pulled = {m.get("name") for m in client.list_models()}
+                for full_name, role in [
+                    (DEFAULT_CODER_MODEL, "coder"),
+                    (DEFAULT_RESEARCH_MODEL, "research"),
+                    (DEFAULT_VISION_MODEL, "vision"),
+                ]:
+                    status_str = "[green]✓[/]" if full_name in pulled else "[red]✗ cekilmemis[/]"
+                    marker = "👉 " if full_name == model else "   "
+                    console.print(f"[dim]{marker}{full_name} [{role}] {status_str}[/]")
+            except Exception as e:
+                console.print(f"[dim]Modeller listelenemedi: {e}[/]")
             continue
         elif prompt.startswith("/index"):
             from tools.rag_ops import index_codebase
@@ -657,6 +779,8 @@ def shell(model: str, confirm_writes: bool, no_network: bool, ctx: int | None):
                 "/airgap (air-gapped mod ac/kapa), /remember <metin> (karar kaydet), "
                 "/memory [N] (kayitli kararlari listele), /audit [verify] (denetim izini goster/dogrula), "
                 "/model <isim> (manuel model degisimi), /ctx <n>|reset (num_ctx override), /look <soru>, "
+                "/doctor (VRAM/RAM durumu), /stats [model] (token/s gecmisi), /status (yuklu model), "
+                "/log [N] (son N log satiri), /models (model listesi), /load <dosya> (session yukle), "
                 "veya direkt yaz. (Not: /exit veya cikiste oturumun ozeti varsa otomatik hafizaya kaydedilir)[/]"
             )
             continue
@@ -692,7 +816,7 @@ def shell(model: str, confirm_writes: bool, no_network: bool, ctx: int | None):
                 intent = "pinned"
                 target_model = pinned_model
             else:
-                intent = route_prompt(client, model, prompt)
+                intent = _keyword_route(prompt) or route_prompt(client, model, prompt)
                 if intent == "codebase":
                     target_model = DEFAULT_CODEBASE_MODEL
                 elif intent == "research":
