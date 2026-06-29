@@ -79,13 +79,16 @@ CHARS_PER_TOKEN_ESTIMATE = 4
 
 
 def estimate_context_usage(messages: list[dict], model_id: str) -> tuple[int, int, int]:
-    """Mesaj gecmisinin kaba token tahminini, num_ctx'i ve doluluk yuzdesini dondurur.
+    """Mesaj gecmisinin token tahminini, num_ctx'i ve doluluk yuzdesini dondurur.
 
-    Tahmin basit bir karakter/4 yaklasimidir (gercek tokenizer'a erisim yok); kesin
-    deger degil, kullaniciyi kirpilmadan once uyarmak icin yeterli bir sinyal.
+    Ollama'dan gercek prompt_eval_count geldiyse onu kullanir (daha dograru);
+    yoksa char/4 tahminiyle devam eder.
     """
-    char_count = sum(len(m.get("content") or "") for m in messages)
-    estimated_tokens = char_count // CHARS_PER_TOKEN_ESTIMATE
+    if config.last_prompt_eval_count:
+        estimated_tokens = config.last_prompt_eval_count
+    else:
+        char_count = sum(len(m.get("content") or "") for m in messages)
+        estimated_tokens = char_count // CHARS_PER_TOKEN_ESTIMATE
     ctx = _num_ctx_for(model_id)
     pct = min(100, round(100 * estimated_tokens / ctx)) if ctx else 0
     return estimated_tokens, ctx, pct
@@ -150,6 +153,7 @@ class OllamaClient:
 
         full_content = ""
         final_message = {}
+        final_chunk: dict = {}
         console.print(f"\n[bold cyan]🤖 {model}[/] [dim](streaming)[/]")
         for raw_line in resp.iter_lines():
             if not raw_line:
@@ -164,10 +168,18 @@ class OllamaClient:
                 full_content += token
             if chunk.get("done"):
                 final_message = chunk.get("message", {})
+                final_chunk = chunk
                 break
         print()  # newline after streaming
         final_message["content"] = full_content
-        return {"message": final_message}
+        # Streaming done chunk'undaki perf alanlarini ana response'a tasiyoruz
+        # boylece run_agent_loop'taki log_turn ayni kodla calisir
+        return {
+            "message": final_message,
+            "eval_count": final_chunk.get("eval_count", 0),
+            "eval_duration": final_chunk.get("eval_duration", 0),
+            "done_reason": final_chunk.get("done_reason", ""),
+        }
 
 
 class ModelManager:
@@ -279,10 +291,21 @@ def run_agent_loop(
 
         eval_count = response.get("eval_count", 0)
         eval_duration_ns = response.get("eval_duration", 0)
+        prompt_eval_count = response.get("prompt_eval_count", 0)
         if eval_count and eval_duration_ns:
             log_turn(model, eval_count, eval_duration_ns)
             global last_tokens_per_sec
             last_tokens_per_sec = round(eval_count / (eval_duration_ns / 1e9), 1)
+        # Ollama'nin gercek prompt token sayisini context tahminine yansit
+        if prompt_eval_count:
+            config.last_prompt_eval_count = prompt_eval_count
+
+        if response.get("done_reason") == "length":
+            console.print(
+                "[bold yellow]⚠️  Context penceresi doldu (done_reason=length) — "
+                "cevap kesilebilir. /ctx ile num_ctx artırın veya /clear ile geçmişi sıfırlayın.[/]"
+            )
+            logger.warning("done_reason=length model=%s turn=%d", model, turn)
 
         message = response.get("message", {})
         

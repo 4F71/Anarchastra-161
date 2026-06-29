@@ -333,6 +333,7 @@ from agents.core import ModelManager
 from tools.file_ops import FILE_TOOLS_SCHEMA, TOOL_EXECUTOR, WORKSPACE_ROOT, read_image_b64
 from agents.coder import (
     CODE_SYSTEM_PROMPT,
+    DEBUG_SYSTEM_PROMPT,
     CODER_TOOLS_SCHEMA,
     CODER_TOOL_EXECUTOR,
     SOCRATIC_SYSTEM_PROMPT,
@@ -485,6 +486,7 @@ def shell(model: str, confirm_writes: bool, no_network: bool, ctx: int | None):
     print_splash()
     pinned_model = None
     socratic_mode = False
+    debug_mode = False
 
     def _memory_context() -> str:
         from tools.memory_ops import recall
@@ -515,6 +517,10 @@ def shell(model: str, confirm_writes: bool, no_network: bool, ctx: int | None):
         elif prompt == "/clear":
             click.clear()
             print_banner()
+            messages[:] = [{"role": "system", "content": CODE_SYSTEM_PROMPT}]
+            socratic_mode = False
+            debug_mode = False
+            console.print("[dim]Konuşma geçmişi sıfırlandı.[/]")
             continue
         elif prompt == "/verbose":
             state = agent_config.toggle_verbose()
@@ -523,8 +529,17 @@ def shell(model: str, confirm_writes: bool, no_network: bool, ctx: int | None):
             continue
         elif prompt == "/socratic":
             socratic_mode = not socratic_mode
+            if socratic_mode:
+                debug_mode = False
             label = "AÇIK ✅ (sorular ile rehberlik)" if socratic_mode else "KAPALI ❌ (doğrudan kod modu)"
             console.print(f"[dim]🤔 Sokratik mod: {label}[/]")
+            continue
+        elif prompt == "/debug":
+            debug_mode = not debug_mode
+            if debug_mode:
+                socratic_mode = False
+            label = "AÇIK ✅ (hata ayıklama modu)" if debug_mode else "KAPALI ❌ (normal kod modu)"
+            console.print(f"[dim]🐛 Debug mod: {label}[/]")
             continue
         elif prompt == "/confirm":
             state = agent_config.toggle_confirm_writes()
@@ -635,6 +650,7 @@ def shell(model: str, confirm_writes: bool, no_network: bool, ctx: int | None):
         elif prompt == "?":
             console.print(
                 "[dim]Komutlar: /exit, /clear, /verbose (thinking log), /confirm (yazma onayi), "
+                "/debug (hata ayiklama modu ac/kapa - DEBUG_SYSTEM_PROMPT kullanir), "
                 "/socratic (Sokratik ogrenme modu ac/kapa - kod aciklamak yerine rehber sorular sorar), "
                 "/save (oturumu kaydet), /index [yollar] (kod tabanini indexle), "
                 "/rollback [N|list] (son N write_file/edit_file islemini geri al), "
@@ -650,7 +666,8 @@ def shell(model: str, confirm_writes: bool, no_network: bool, ctx: int | None):
         if prompt.startswith("/look"):
             import tempfile
             prompt_text = prompt[5:].strip() or "Bu görüntüde ne görüyorsun? Hataları veya ilginç noktaları Türkçe açıkla."
-            temp_path = tempfile.mktemp(suffix=".png", prefix="free_look_")
+            with tempfile.NamedTemporaryFile(suffix=".png", prefix="free_look_", delete=False) as _tf:
+                temp_path = _tf.name
             if capture_snipping_tool(temp_path):
                 try:
                     image_b64 = read_image_b64(temp_path)
@@ -702,6 +719,9 @@ def shell(model: str, confirm_writes: bool, no_network: bool, ctx: int | None):
         elif model == DEFAULT_VISION_MODEL and not pinned_model:
             messages[0] = {"role": "system", "content": VISION_SYSTEM_PROMPT}
             tools_schema, tool_executor = FILE_TOOLS_SCHEMA, TOOL_EXECUTOR
+        elif debug_mode:
+            messages[0] = {"role": "system", "content": DEBUG_SYSTEM_PROMPT}
+            tools_schema, tool_executor = CODER_TOOLS_SCHEMA, CODER_TOOL_EXECUTOR
         elif socratic_mode:
             messages[0] = {"role": "system", "content": SOCRATIC_SYSTEM_PROMPT}
             tools_schema, tool_executor = SOCRATIC_TOOLS_SCHEMA, SOCRATIC_TOOL_EXECUTOR
@@ -709,7 +729,10 @@ def shell(model: str, confirm_writes: bool, no_network: bool, ctx: int | None):
             messages[0] = {"role": "system", "content": CODE_SYSTEM_PROMPT}
             tools_schema, tool_executor = CODER_TOOLS_SCHEMA, CODER_TOOL_EXECUTOR
 
-        messages[0]["content"] += _memory_context()
+        base_system = messages[0]["content"]
+        mem = _memory_context()
+        if mem:
+            messages[0] = {"role": "system", "content": base_system + mem}
 
         try:
             result = run_agent_loop(

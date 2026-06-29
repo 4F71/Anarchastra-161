@@ -5,6 +5,7 @@ confirm_writes: bool = False
 no_network: bool = False
 audit_enabled: bool = False
 ctx_override: int | None = None
+last_prompt_eval_count: int = 0  # Ollama'dan gelen gercek prompt token sayisi
 
 
 def toggle_verbose() -> bool:

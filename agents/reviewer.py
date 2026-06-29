@@ -10,6 +10,7 @@ from tools.memory_ops import MEMORY_TOOLS_SCHEMA, MEMORY_TOOL_EXECUTOR
 from tools.system_ops import SYSTEM_TOOLS_SCHEMA, SYSTEM_TOOL_EXECUTOR
 from tools.audit_ops import AUDIT_TOOLS_SCHEMA, AUDIT_TOOL_EXECUTOR
 from tools.rollback_ops import ROLLBACK_TOOLS_SCHEMA, ROLLBACK_TOOL_EXECUTOR
+from tools.grep_ops import GREP_TOOLS_SCHEMA, GREP_TOOL_EXECUTOR
 
 REVIEWER_SYSTEM_PROMPT = (
     "Sen 'free review' ajanisin. Kod kalitesi denetlemesi yaparsin. Once list_workspace/"
@@ -22,7 +23,7 @@ REVIEWER_SYSTEM_PROMPT = (
     "kullanicinin acikca istedigi duzeltmeleri uygularken kullan (kucuk degisiklik icin "
     "edit_file'i tercih et).\n\n"
     "Mevcut araclar: 'read_file', 'write_file', 'edit_file', 'list_workspace', 'run_python', "
-    "'git_diff', 'git_diff_staged', 'git_log', 'git_status', 'web_search', 'fetch_url', 'whois_lookup', 'run_ruff', 'run_mypy', "
+    "'git_diff', 'git_diff_staged', 'git_log', 'git_status', 'grep_codebase', 'web_search', 'fetch_url', 'whois_lookup', 'run_ruff', 'run_mypy', "
     "'run_pytest', 'search_codebase', 'check_system_resources', 'audit_tail', 'verify_audit_chain', "
     "'rollback_history'.\n"
     "Bir arac cagirmak icin SADECE asagidaki JSON formatini ciktinda bulundur, BASKA HICBIR SEY YAZMA:\n"
@@ -36,12 +37,12 @@ REVIEWER_SYSTEM_PROMPT = (
 
 REVIEWER_TOOLS_SCHEMA = (
     FILE_TOOLS_SCHEMA + STATIC_ANALYSIS_TOOLS_SCHEMA + EXEC_TOOLS_SCHEMA + GIT_TOOLS_SCHEMA
-    + RAG_TOOLS_SCHEMA + MEMORY_TOOLS_SCHEMA + SYSTEM_TOOLS_SCHEMA
+    + RAG_TOOLS_SCHEMA + GREP_TOOLS_SCHEMA + MEMORY_TOOLS_SCHEMA + SYSTEM_TOOLS_SCHEMA
     + AUDIT_TOOLS_SCHEMA + ROLLBACK_TOOLS_SCHEMA
 )
 REVIEWER_TOOL_EXECUTOR = {
     **TOOL_EXECUTOR, **STATIC_ANALYSIS_EXECUTOR, **EXEC_TOOL_EXECUTOR, **GIT_TOOL_EXECUTOR,
-    **RAG_TOOL_EXECUTOR, **MEMORY_TOOL_EXECUTOR, **SYSTEM_TOOL_EXECUTOR,
+    **RAG_TOOL_EXECUTOR, **GREP_TOOL_EXECUTOR, **MEMORY_TOOL_EXECUTOR, **SYSTEM_TOOL_EXECUTOR,
     **AUDIT_TOOL_EXECUTOR, **ROLLBACK_TOOL_EXECUTOR,
 }
 

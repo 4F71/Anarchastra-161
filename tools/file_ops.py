@@ -65,11 +65,24 @@ def edit_file(path: str, old_string: str, new_string: str) -> str:
     return f"edited {path}: {len(old_string)} -> {len(new_string)} chars replaced"
 
 
-def list_workspace(path: str = ".") -> list[str]:
+def list_workspace(path: str = ".", recursive: bool = False) -> list[str]:
     target = resolve_read_path(path)
     if not os.path.isdir(target):
         raise ValueError(f"not a directory: {path}")
-    return sorted(os.listdir(target))
+    if not recursive:
+        entries = os.listdir(target)
+        return sorted(
+            e + ("/" if os.path.isdir(os.path.join(target, e)) else "")
+            for e in entries
+        )
+    results = []
+    for root, dirs, files in os.walk(target):
+        dirs[:] = sorted(d for d in dirs if not d.startswith("."))
+        rel_root = os.path.relpath(root, target)
+        for f in sorted(files):
+            rel = os.path.join(rel_root, f) if rel_root != "." else f
+            results.append(rel.replace("\\", "/"))
+    return results
 
 
 def read_image_b64(path: str) -> str:
@@ -152,14 +165,18 @@ FILE_TOOLS_SCHEMA = [
         "type": "function",
         "function": {
             "name": "list_workspace",
-            "description": "List files/directories. Allowed anywhere inside the project root (not just workspace/).",
+            "description": "List files/directories. Allowed anywhere inside the project root. Use recursive=true to walk all subdirectories.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "path": {
                         "type": "string",
                         "description": "Directory path relative to the project root. Defaults to project root.",
-                    }
+                    },
+                    "recursive": {
+                        "type": "boolean",
+                        "description": "If true, walk all subdirectories and return relative paths. Default false.",
+                    },
                 },
                 "required": [],
             },
