@@ -398,8 +398,9 @@ def run_agent_loop(
                     result = f"ERROR: {exc}"
                     logger.warning("tool_call failed name=%s error=%s", name, exc)
 
+            preview = result[:500] + "..." if len(result) > 500 else result
+            logger.info("tool_result name=%s result=%s", name, preview)
             if config.verbose:
-                preview = result[:1000] + "..." if len(result) > 1000 else result
                 console.print(f"[dim]── ARAÇ SONUCU [{name}] ──\n{preview}[/]")
 
             # Pass tool result as a user message since native tools are disabled
